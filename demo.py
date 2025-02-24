@@ -124,6 +124,16 @@ if __name__ == '__main__':
                                        landmarks_mp=flame_output['landmarks_mp'])
     rendered_img = renderer_output['rendered_img']
     print(f"rendered_img shape: {rendered_img.shape}")
+    import torchvision.transforms as transforms
+    transform = transforms.ToPILImage()
+    # We need to squeeze the batch dimension (the first dimension) since we're saving just one image
+    # The tensor should be in the format [C, H, W] for the transform to work
+    img_tensor = rendered_img.squeeze(0)  # Now has shape [3, 224, 224]
+    # Convert to a PIL image
+    pil_image = transform(img_tensor.cpu())  # Make sure tensor is on CPU before conversion
+    # Save the PIL image to PNG
+    output_path = "rendered_image.png"
+    pil_image.save(output_path)
     5 / 0
 
     if args.render_orig:
