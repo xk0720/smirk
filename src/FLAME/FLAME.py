@@ -54,14 +54,20 @@ class FLAME(nn.Module):
         """ short-term solution """
         # Add the missing function to the inspect module
         import inspect
+        from collections import namedtuple
+
+        if not hasattr(inspect, 'ArgSpec'):
+            inspect.ArgSpec = namedtuple('ArgSpec', ['args', 'varargs', 'keywords', 'defaults'])
+
+        # Add the missing getargspec function
         if not hasattr(inspect, 'getargspec'):
             def getargspec(func):
-                args = inspect.getfullargspec(func)
+                full_args = inspect.getfullargspec(func)
                 return inspect.ArgSpec(
-                    args=args.args,
-                    varargs=args.varargs,
-                    keywords=args.varkw,
-                    defaults=args.defaults
+                    args=full_args.args,
+                    varargs=full_args.varargs,
+                    keywords=full_args.varkw,
+                    defaults=full_args.defaults
                 )
 
             inspect.getargspec = getargspec
