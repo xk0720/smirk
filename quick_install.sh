@@ -24,8 +24,6 @@ echo -e "\nDownload pretrained SMIRK model..."
 mkdir -p pretrained_models/
 gdown --id 1T65uEd9dVLHgVw5KiUYL66NUee-MCzoE -O pretrained_models/
 
-
-
 # The rest of the files are needed for training
 echo -e "\n Now downloading the files needed if you want to train SMIRK..."
 
@@ -47,13 +45,13 @@ while true; do
     esac
 done
 
-wget https://download.is.tue.mpg.de/emoca/assets/EmotionRecognition/image_based_networks/ResNet50.zip -O ResNet50.zip
-unzip ResNet50.zip -d assets/
-rm ResNet50.zip
+#wget https://download.is.tue.mpg.de/emoca/assets/EmotionRecognition/image_based_networks/ResNet50.zip -O ResNet50.zip
+#unzip ResNet50.zip -d assets/
+#rm ResNet50.zip
 
 # Download MICA
-echo -e "\nDownloading MICA..."
-wget -O assets/mica.tar "https://keeper.mpdl.mpg.de/f/db172dc4bd4f4c0f96de/?dl=1"
+#echo -e "\nDownloading MICA..."
+#wget -O assets/mica.tar "https://keeper.mpdl.mpg.de/f/db172dc4bd4f4c0f96de/?dl=1"
 
 
 echo -e "\nFinished downloading all files."

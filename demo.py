@@ -101,6 +101,12 @@ if __name__ == '__main__':
     
     cropped_image = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB)
     cropped_image = cv2.resize(cropped_image, (224,224))
+
+    # Save the processed image to a PNG file
+    output_filename = "cropped_image.png"
+    cv2.imwrite(output_filename, cropped_image)
+    5/0
+
     cropped_image = torch.tensor(cropped_image).permute(2,0,1).unsqueeze(0).float()/255.0
     cropped_image = cropped_image.to(args.device)
 
