@@ -58,6 +58,8 @@ if __name__ == '__main__':
     smirk_encoder.load_state_dict(checkpoint_encoder)
     smirk_encoder.eval()
 
+    print(f"keys in saved checkpoint_encoder: {checkpoint_encoder.keys()}")
+
     if args.use_smirk_generator:
         from src.smirk_generator import SmirkGenerator
         smirk_generator = SmirkGenerator(in_channels=6, out_channels=3, init_features=32, res_blocks=5).to(args.device)
