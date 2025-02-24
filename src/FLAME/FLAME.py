@@ -51,6 +51,21 @@ class FLAME(nn.Module):
                  flame_lmk_embedding_path='assets/landmark_embedding.npy', n_shape=300, n_exp=50):
         super(FLAME, self).__init__()
 
+        """ short-term solution """
+        # Add the missing function to the inspect module
+        import inspect
+        if not hasattr(inspect, 'getargspec'):
+            def getargspec(func):
+                args = inspect.getfullargspec(func)
+                return inspect.ArgSpec(
+                    args=args.args,
+                    varargs=args.varargs,
+                    keywords=args.varkw,
+                    defaults=args.defaults
+                )
+
+            inspect.getargspec = getargspec
+
         with open(flame_model_path, 'rb') as f:
             ss = pickle.load(f, encoding='latin1')
             flame_model = Struct(**ss)
