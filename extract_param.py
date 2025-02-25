@@ -30,7 +30,7 @@ class ParamExtracting:
         checkpoint_encoder = {k.replace('smirk_encoder.', ''): v for k, v in checkpoint.items() if
                               'smirk_encoder' in k}  # checkpoint includes both smirk_encoder and smirk_generator
         self.smirk_encoder.load_state_dict(checkpoint_encoder)
-        # self.smirk_encoder.share_memory()
+        self.smirk_encoder.share_memory()
 
         # instantiate FLAME model
         # self.flame = FLAME().to(self.cfg.device)
@@ -112,7 +112,7 @@ class ParamExtracting:
         input_video_path, output_3dmm_path, shared_queue = args
 
         # move to gpu
-        self.smirk_encoder.to(self.cfg.device)
+        # self.smirk_encoder.to(self.cfg.device)
         self.smirk_encoder.eval()
 
         # create video file
