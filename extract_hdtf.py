@@ -1,3 +1,4 @@
+import queue
 import cv2
 import numpy as np
 from skimage.transform import estimate_transform, warp
@@ -17,7 +18,7 @@ import torch.multiprocessing as mp
 from multiprocessing import Manager
 
 
-class VideoTracking(nn.Module):
+class ParamExtracting(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         self.cfg = cfg
@@ -65,12 +66,13 @@ class VideoTracking(nn.Module):
 
         if not cap.isOpened():
             print('Error opening video file')
-            error_message = f"Video opening error happened: {input_video_path}"
+            error_message = f"Video opening error: {input_video_path}"
             shared_queue.put(error_message)
             exit()
 
         # get the original frame rate of the video
-        video_fps = cap.get(cv2.CAP_PROP_FPS)  # todo further processing based on fps?
+        # todo further processing based on fps?
+        video_fps = cap.get(cv2.CAP_PROP_FPS)
 
         # video_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         # video_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -91,7 +93,7 @@ class VideoTracking(nn.Module):
             # no face detected
             if kpt_mediapipe is None:
                 print(f"No face is detected in frame {frame_ind + 1}.")
-                error_message = f"Face detection error happened: {input_video_path}"
+                error_message = f"Face detection error: {input_video_path}"
                 shared_queue.put(error_message)
                 break
 
@@ -168,48 +170,42 @@ class VideoTracking(nn.Module):
                 print(f"Error details: {str(e)}")
 
                 # record the trouble url
-                error_message = f"Saving error happened: {input_video_path}"
+                error_message = f"Saving error: {input_video_path}"
                 shared_queue.put(error_message)
 
 
 def main(cfg):
-    root_path = cfg.root  # csv file
-
     # list_path = pd.read_csv(os.path.join(root_path, split + '_{}.csv'.format(dataset)),
     #                         header=None, delimiter=',').drop(0)
 
-    # len_processed_files = len(processed_files)
-    # print("len_processed_files: ", len_processed_files)
-    # participant_paths = participant_paths[len_processed_files:]
-    # print("length of new participant_paths: ", len(participant_paths))
-    # print("participant_paths: ", participant_paths)
+    input_dir = cfg.input_dir
+    output_dir = cfg.output_dir
+    os.makedirs(output_dir, exist_ok=True)
 
-    # TODO do something
-    input_dir = ""
-    output_dir = ""
-    participant_paths = []
-
+    path_list = os.listdir(input_dir)
     args_list = []
-    for path in participant_paths:
+    for path in path_list:
         # save_dir = '/'.join(os.path.join(output_dir, path).split('/')[:-1])
         # "/phd_data_all/UDIVA_clean/test/3D_FV_files/UDIVA/animal/FC1"
         # os.makedirs(save_dir, exist_ok=True)
 
         input_path = os.path.join(input_dir, path + '.mp4')
         output_path = os.path.join(output_dir, path + '.npy')
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        # os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
         args_list.append((input_path, output_path))
         # example:
         # ('/root/autodl-tmp/PhD_code_exp/phd_data_all/UDIVA_clean/test/Video_files/UDIVA/talk/188189/FC2/9.mp4',
         # '/root/autodl-tmp/PhD_code_exp/phd_data_all/UDIVA_clean/test/3D_FV_files/UDIVA/talk/188189/FC2/9.npy')
 
-    if torch.cuda.device_count() > 0:
-        # Adjust the device ordinal as needed
-        device = torch.device('cuda:0')
-    else:
-        device = torch.device('cpu')
-    track_model = VideoTracking(cfg, device)
+    model = ParamExtracting(cfg)
+
+    # TODO simple test
+    input = args_list[0]
+    import queue
+    temp_queue = queue.Queue()
+    model.extract(input + (temp_queue,))
+    5/0
 
     with Manager() as manager:
         shared_queue = manager.Queue()
@@ -217,24 +213,53 @@ def main(cfg):
         args_list = [args + shared_queue for args in args_list]
         # for instance: [(input_path, output_path, shared_queue)]
 
+    total_tasks = len(args_list)
+    num_processing = cfg.num_processing
+    # num_processing = mp.cpu_count() // 4
+    chunksize = max(1, total_tasks // (num_processing * 2))
+
     with mp.Pool(cfg.num_processing) as p:
         with tqdm(total=len(args_list), desc="extracting FLAME blendshapes from video files") as pbar:
-            for path in p.imap_unordered(func=track_model.tracking,
+            for path in p.imap_unordered(func=model.extract,
                                          iterable=args_list,
-                                         chunksize=cfg.chunksize):  # HYPEParameter setup
+                                         chunksize=chunksize):  # HYPEParameter setup
                 pbar.update()
                 print(f"Done processed video file: {path}")
+
+    # TODO save queue to a json file
+    # with open("failed_urls.txt", "w", encoding="utf-8") as f:
+    #     while not shared_queue.empty():
+    #         url = shared_queue.get(block=False)
+    #         f.write(url + "\n")
+
+    with open("failed_urls.txt", "w", encoding="utf-8") as f:
+        try:
+            while True:
+                url = shared_queue.get(block=False)
+                f.write(url + "\n")
+        # except queue.Empty:
+        except Exception as e:
+            # Queue is empty, exit the loop
+            error_type = e.__class__.__name__
+            print(f"{error_type}: {e}")
+            # pass
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--input_path', type=str, default='samples/mead_90.png', help='Path to the input image/video')
+    parser.add_argument('--input_dir', type=str,
+                        default='/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF_dataset/HDTF',
+                        help='Path to the input image/video')
+    parser.add_argument('--output_dir', type=str,
+                        default='/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF/param')
     parser.add_argument('--device', type=str, default='cuda', help='Device to run the model on')
-    parser.add_argument('--checkpoint', type=str, default='trained_models/SMIRK_em1.pt', help='Path to the checkpoint')
+    parser.add_argument('--num_processing', type=int, default=8, help='number of torch processes')
+    parser.add_argument('--checkpoint', type=str, default='trained_models/SMIRK_em1.pt',
+                        help='Path to the checkpoint')
     parser.add_argument('--crop', action='store_true', help='Crop the face using mediapipe')
-    parser.add_argument('--out_path', type=str, default='output',
-                        help='Path to save the output (will be created if not exists)')
+    # parser.add_argument('--out_path', type=str, default='output',
+    #                     help='Path to save the output (will be created if not exists)')
     parser.add_argument('--use_smirk_generator', action='store_true',
                         help='Use SMIRK neural image to image translator to reconstruct the image')
     parser.add_argument('--render_orig', action='store_true',
