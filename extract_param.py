@@ -99,6 +99,16 @@ class ParamExtracting:
     #         # set the pointer face_detected_ptr to current frame index
     #         face_detected_ptr = frame_count
 
+    def forward(self, cropped_images, face_detected_ptr):
+        with torch.no_grad():
+            print(f"smirk_encoder extracting frame {face_detected_ptr}")
+            outputs = self.smirk_encoder(cropped_images.to(self.cfg.device))
+            expression = outputs['expression_params']
+            jaw = outputs['jaw_params']
+            pose = outputs['pose_params']
+
+        return expression, jaw, pose
+
     def extract(self, args):
         input_video_path, output_3dmm_path, shared_queue = args
 
@@ -146,6 +156,12 @@ class ParamExtracting:
 
             # If the frame was not read successfully, end of the video is reached
             if not ret:
+                if len(mini_batch) > 0:
+                    cropped_images = torch.cat(mini_batch, dim=0)
+                    outputs = self.forward(cropped_images, face_detected_ptr)
+                    coeffs_3dmm = torch.cat(outputs, dim=-1)  # shape: [bs, 56]
+                    coeffs_list.append(coeffs_3dmm.detach().cpu())
+
                 break
 
             frame_count += 1  # frame idx
@@ -157,6 +173,13 @@ class ParamExtracting:
             if kpt_mediapipe is None:
                 if face_detected_ptr > 0 and frame_count > face_detected_ptr:
                     # indicates a case: no face detected again (maybe) at the end the video
+                    
+                    if len(mini_batch) > 0:
+                        cropped_images = torch.cat(mini_batch, dim=0)
+                        outputs = self.forward(cropped_images, face_detected_ptr)
+                        coeffs_3dmm = torch.cat(outputs, dim=-1)  # shape: [bs, 56]
+                        coeffs_list.append(coeffs_3dmm.detach().cpu())
+
                     error_message = f"URL: {input_video_path}. Face is not detected at {frame_count}/{num_frames}"
                     shared_queue.put(error_message)
                     break
@@ -199,7 +222,6 @@ class ParamExtracting:
 
             cropped_image = torch.tensor(cropped_image).permute(2, 0, 1).unsqueeze(0).float() / 255.0
             cropped_image = cropped_image.to(self.cfg.device)
-            # print(f"cropped_image shape: {cropped_image.shape}")
 
             if len(mini_batch) < self.cfg.batch_size:
                 mini_batch.append(cropped_image)
@@ -208,16 +230,8 @@ class ParamExtracting:
                 cropped_images = torch.cat(mini_batch, dim=0)  # [bs, 3, 224, 224]
                 mini_batch = []
 
-            with torch.no_grad():
-                print(f"smirk_encoder extracting frame {face_detected_ptr}")
-                outputs = self.smirk_encoder(cropped_images.to(self.cfg.device))
-                expression = outputs['expression_params']
-                jaw = outputs['jaw_params']
-                pose = outputs['pose_params']
-            coeffs_3dmm = torch.cat((expression, jaw, pose), dim=-1)  # shape: [1, 56]
-            # print(f"shape of coeffs_3dmm: {coeffs_3dmm.shape}")
-
-            # save 3DMM at the moment
+            outputs = self.forward(cropped_images, face_detected_ptr)
+            coeffs_3dmm = torch.cat(outputs, dim=-1)  # shape: [bs, 56]
             coeffs_list.append(coeffs_3dmm.detach().cpu())
 
         if len(coeffs_list) == 0:
