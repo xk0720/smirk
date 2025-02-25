@@ -115,6 +115,8 @@ class ParamExtracting:
 
         # create video file
         cap = cv2.VideoCapture(input_video_path)
+        print(f"cap: {cap}")
+        5/0
 
         if not cap.isOpened():
             print(f'Error opening video file: {input_video_path}')
@@ -253,6 +255,7 @@ def main(cfg):
         args_list.append((input_path, output_path))
 
     # model.test_("/lustre/projects/Research_Project-T127204/xk219/projects/mmlm-interactive-head/test_sample.mp4")
+    print(f"args_list: {args_list}")
 
     with Manager() as manager:
         shared_queue = manager.Queue()
