@@ -94,11 +94,12 @@ class ParamExtracting(nn.Module):
             if kpt_mediapipe is None:
                 # print(f"No face is detected in frame {frame_ind + 1}.")
                 error_message = f"Face detection error: {input_video_path}"
+                print(error_message)
                 shared_queue.put(error_message)
                 continue
 
             # crop face if needed
-            if args.crop:
+            if self.cfg.crop:
                 if (kpt_mediapipe is None):
                     print('Could not find landmarks for the image using mediapipe and cannot crop the face. Exiting...')
                     exit()
