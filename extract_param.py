@@ -119,21 +119,19 @@ class ParamExtracting:
         cap = cv2.VideoCapture(input_video_path)
         # print(f"cap: {cap}")
 
-        if not cap.isOpened():
-            print(f'Error opening video file: {input_video_path}')
-            # error_message = f"Video opening error: {input_video_path}"
-            # shared_queue.put(error_message)
-            return
-            # exit()
+        # if not cap.isOpened():
+        #     print(f'Error opening video file: {input_video_path}')
+        #     # error_message = f"Video opening error: {input_video_path}"
+        #     # shared_queue.put(error_message)
+        #     return
 
         # get the original frame rate of the video
         # todo further processing based on fps?
-        video_fps = cap.get(cv2.CAP_PROP_FPS)
+        # video_fps = cap.get(cv2.CAP_PROP_FPS)
 
         # video_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         # video_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        num_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-        num_frames = int(num_frames)
+        num_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
         frame_count = 0
         face_detected_ptr = frame_count
@@ -200,8 +198,6 @@ class ParamExtracting:
             cropped_image = torch.tensor(cropped_image).permute(2, 0, 1).unsqueeze(0).float() / 255.0
             cropped_image = cropped_image.to(self.cfg.device)
             # print(f"cropped_image shape: {cropped_image.shape}")
-
-            # batch
 
             with torch.no_grad():
                 outputs = self.smirk_encoder(cropped_image)
