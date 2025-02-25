@@ -77,6 +77,7 @@ class ParamExtracting(nn.Module):
         # video_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         # video_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         num_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        num_frames = int(num_frames)
 
         frame_count = 0
         face_detected_ptr = frame_count
