@@ -262,11 +262,11 @@ def main(cfg):
     # model.test_("/lustre/projects/Research_Project-T127204/xk219/projects/mmlm-interactive-head/test_sample.mp4")
     # print(f"args_list: {args_list}")
 
+    # instantiate model
+    model = ParamExtracting(cfg)
+
     with Manager() as manager:
         shared_queue = manager.Queue()
-
-        # instantiate model
-        model = ParamExtracting(cfg)
 
         args_list = [args + (shared_queue,) for args in args_list]
         # for instance: [(input_path, output_path, shared_queue)]
