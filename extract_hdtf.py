@@ -189,8 +189,9 @@ def main(cfg):
         # "/phd_data_all/UDIVA_clean/test/3D_FV_files/UDIVA/animal/FC1"
         # os.makedirs(save_dir, exist_ok=True)
 
-        input_path = os.path.join(input_dir, path + '.mp4')
-        output_path = os.path.join(output_dir, path + '.npy')
+        name = path[:-4]
+        input_path = os.path.join(input_dir, path)
+        output_path = os.path.join(output_dir, name + '.npy')
         # os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
         args_list.append((input_path, output_path))
