@@ -66,8 +66,8 @@ class ParamExtracting(nn.Module):
 
         if not cap.isOpened():
             print(f'Error opening video file: {input_video_path}')
-            error_message = f"Video opening error: {input_video_path}"
-            shared_queue.put(error_message)
+            # error_message = f"Video opening error: {input_video_path}"
+            # shared_queue.put(error_message)
             exit()
 
         # get the original frame rate of the video
@@ -76,10 +76,12 @@ class ParamExtracting(nn.Module):
 
         # video_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         # video_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        num_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
 
-        frame_ind = 0
-        coeffs_list = []  # np.zeros(shape=(frame_count, 1, 58))
+        frame_count = 0
+        face_detected_ptr = frame_count
+        face_detected = True
+        coeffs_list = []
 
         while True:
             # loading frames
@@ -88,15 +90,31 @@ class ParamExtracting(nn.Module):
             # If the frame was not read successfully, end of the video is reached
             if not ret:
                 break
+                
+            frame_count += 1  # frame idx
 
             kpt_mediapipe = run_mediapipe(image)
             # no face detected
             if kpt_mediapipe is None:
-                # print(f"No face is detected in frame {frame_ind + 1}.")
-                error_message = f"Face detection error: {input_video_path}"
+                if frame_count > face_detected_ptr:
+                    # indicates a case: no face detected again (maybe) at the end the video
+                    error_message = f"URL: {input_video_path}. Face is not detected again at {frame_count}/{num_frames}"
+                    shared_queue.put(error_message)
+                    break
+                # print(f"No face is detected in frame {frame_count + 1}.")
+                face_detected = False
+                continue
+
+            if frame_count > 1 and face_detected is False:
+                # indicates a case: no face detected at the beginning of the video,
+                # face detected until reach frame {frame_count}
+                error_message = f"URL: {input_video_path}. Face is not detected at {frame_count-1}/{num_frames}"
                 print(error_message)
                 shared_queue.put(error_message)
-                continue
+                face_detected = True
+
+            # set the pointer face_detected_ptr to current frame index
+            face_detected_ptr = frame_count
 
             # crop face if needed
             if self.cfg.crop:
@@ -119,66 +137,61 @@ class ParamExtracting(nn.Module):
 
             cropped_image = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB)
             cropped_image = cv2.resize(cropped_image, (224, 224))
+
+            # TODO debug: save the cropped image for review
+            debug_filename = "debug_cropped_image.png"
+            save_image = cv2.cvtColor(cropped_image, cv2.COLOR_RGB2BGR)
+            cv2.imwrite(debug_filename, save_image)
+            print(f"Debug image saved to {debug_filename}")
+            5/0
+
             cropped_image = torch.tensor(cropped_image).permute(2, 0, 1).unsqueeze(0).float() / 255.0
             cropped_image = cropped_image.to(self.cfg.device)
 
             with torch.no_grad():
-                # pose_outputs = self.pose_encoder(img)
-                # shape_outputs = self.shape_encoder(img)
-                # expression_outputs = self.expression_encoder(img)
-
                 outputs = self.smirk_encoder(cropped_image)
                 expression = outputs['expression_params']
                 jaw = outputs['jaw_params']
                 pose = outputs['pose_params']
-            coeffs_3dmm = torch.cat((expression, jaw, pose), dim=-1)  # dimensionality
-
-            print(f"shape of coeffs_3dmm: {coeffs_3dmm.shape}")
-            5/0
-
-            # # todo load images
-            # images = None
+            coeffs_3dmm = torch.cat((expression, jaw, pose), dim=-1)  # shape: [1, 56]
+            # print(f"shape of coeffs_3dmm: {coeffs_3dmm.shape}")
 
             coeffs_list.append(coeffs_3dmm)
 
             # save 3DMM at the moment
             coeffs_list.append(coeffs_3dmm.detach().cpu())
 
-            frame_ind += 1
-            if frame_ind >= frame_count:
-                break
+            # if frame_count >= frame_count:
+            #     break
 
-        if len(coeffs_list) < frame_count:
-            print("Some frames have no faces detected.")
-        else:
-            print("All frames detected faces, saving npy file ...")
-            all_coeffs = torch.stack(coeffs_list, dim=0).numpy()
-            print("The shape of extracted 3DMM coefficients: ", all_coeffs.shape)
+        # if len(coeffs_list) < frame_count:
+        #     print("Some frames have no faces detected.")
+        # else:
+        # print("All frames detected faces, saving npy file ...")
+        all_coeffs = torch.stack(coeffs_list, dim=0).numpy()
+        # print("The shape of extracted 3DMM coefficients: ", all_coeffs.shape)
 
-            try:
-                # Save the array
-                np.save(output_3dmm_path, all_coeffs)
-                print(f"Successfully saved audio clip to {output_3dmm_path}")
-            except Exception as e:
-                error_type = type(e).__name__
-                if isinstance(e, IOError):
-                    print(f"IO Error: Unable to save file to {output_3dmm_path}")
-                elif isinstance(e, ValueError):
-                    print(f"Value Error: Error in saving NumPy array")
-                else:
-                    print(f"Unexpected error occurred while saving the file")
+        try:
+            # Save the array
+            np.save(output_3dmm_path, all_coeffs)
+            print(f"Successfully saved audio clip to {output_3dmm_path}")
+        except Exception as e:
+            error_type = type(e).__name__
+            if isinstance(e, IOError):
+                print(f"IO Error: Unable to save file to {output_3dmm_path}")
+            elif isinstance(e, ValueError):
+                print(f"Value Error: Error in saving NumPy array")
+            else:
+                print(f"Unexpected error occurred while saving the file")
 
-                print(f"Error details: {str(e)}")
+            print(f"Error details: {str(e)}")
 
-                # record the trouble url
-                error_message = f"Saving error: {input_video_path}"
-                shared_queue.put(error_message)
+            # record the trouble url
+            error_message = f"URL: {input_video_path}. Files Saving Error"
+            shared_queue.put(error_message)
 
 
 def main(cfg):
-    # list_path = pd.read_csv(os.path.join(root_path, split + '_{}.csv'.format(dataset)),
-    #                         header=None, delimiter=',').drop(0)
-
     input_dir = cfg.input_dir
     output_dir = cfg.output_dir
     os.makedirs(output_dir, exist_ok=True)
@@ -203,11 +216,10 @@ def main(cfg):
     model = ParamExtracting(cfg)
 
     # TODO simple test
-    input = args_list[0]
-    import queue
-    temp_queue = queue.Queue()
-    model.extract(input + (temp_queue,))
-    5/0
+    # input = args_list[0]
+    # import queue
+    # temp_queue = queue.Queue()
+    # model.extract(input + (temp_queue,))
 
     with Manager() as manager:
         shared_queue = manager.Queue()
@@ -215,36 +227,36 @@ def main(cfg):
         args_list = [args + shared_queue for args in args_list]
         # for instance: [(input_path, output_path, shared_queue)]
 
-    total_tasks = len(args_list)
-    num_processing = cfg.num_processing
-    # num_processing = mp.cpu_count() // 4
-    chunksize = max(1, total_tasks // (num_processing * 2))
+        total_tasks = len(args_list)
+        num_processing = cfg.num_processing
+        # num_processing = mp.cpu_count() // 4
+        chunksize = max(1, total_tasks // (num_processing * 2))
 
-    with mp.Pool(cfg.num_processing) as p:
-        with tqdm(total=len(args_list), desc="extracting FLAME blendshapes from video files") as pbar:
-            for path in p.imap_unordered(func=model.extract,
-                                         iterable=args_list,
-                                         chunksize=chunksize):  # HYPEParameter setup
-                pbar.update()
-                print(f"Done processed video file: {path}")
+        with mp.Pool(cfg.num_processing) as p:
+            with tqdm(total=len(args_list), desc="extracting FLAME blendshapes from video files") as pbar:
+                for path in p.imap_unordered(func=model.extract,
+                                             iterable=args_list,
+                                             chunksize=chunksize):  # HYPEParameter setup
+                    pbar.update()
+                    print(f"Done processed video file: {path}")
 
-    # TODO save queue to a json file
-    # with open("failed_urls.txt", "w", encoding="utf-8") as f:
-    #     while not shared_queue.empty():
-    #         url = shared_queue.get(block=False)
-    #         f.write(url + "\n")
+        # TODO save queue to a json file
+        # with open("failed_urls.txt", "w", encoding="utf-8") as f:
+        #     while not shared_queue.empty():
+        #         url = shared_queue.get(block=False)
+        #         f.write(url + "\n")
 
-    with open("failed_urls.txt", "w", encoding="utf-8") as f:
-        try:
-            while True:
-                url = shared_queue.get(block=False)
-                f.write(url + "\n")
-        # except queue.Empty:
-        except Exception as e:
-            # Queue is empty, exit the loop
-            error_type = e.__class__.__name__
-            print(f"{error_type}: {e}")
-            # pass
+        with open("failed_urls.txt", "w", encoding="utf-8") as f:
+            try:
+                while True:
+                    url = shared_queue.get(block=False)
+                    f.write(url + "\n")
+            # except queue.Empty:
+            except Exception as e:
+                # Queue is empty, exit the loop
+                error_type = e.__class__.__name__
+                print(f"{error_type}: {e}")
+                # pass
 
 
 if __name__ == '__main__':
