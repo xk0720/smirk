@@ -96,7 +96,7 @@ class ParamExtracting(nn.Module):
             kpt_mediapipe = run_mediapipe(image)
             # no face detected
             if kpt_mediapipe is None:
-                if face_detected and frame_count > face_detected_ptr:
+                if face_detected_ptr > 0 and frame_count > face_detected_ptr:
                     # indicates a case: no face detected again (maybe) at the end the video
                     error_message = f"URL: {input_video_path}. Face is not detected again at {frame_count}/{num_frames}"
                     shared_queue.put(error_message)
