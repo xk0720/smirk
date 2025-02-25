@@ -102,7 +102,7 @@ class ParamExtracting(nn.Module):
             if frame_count > 1 and face_detected is False:
                 # indicates a case: no face detected at the beginning of the video,
                 # face detected until reach frame {frame_count}
-                error_message = f"URL: {input_video_path}. Face is not detected at {frame_count - 1}/{num_frames}"
+                error_message = f"URL: {input_video_path}. Face is detected at {frame_count}/{num_frames}"
                 print(error_message)
                 face_detected = True
 

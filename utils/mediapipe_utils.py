@@ -26,7 +26,7 @@ def run_mediapipe(image):
     detection_result = detector.detect(image)
 
     if len(detection_result.face_landmarks) == 0:
-        print('No face detected')
+        # print('No face detected')
         return None
 
     face_landmarks = detection_result.face_landmarks[0]
