@@ -58,6 +58,58 @@ class ParamExtracting(nn.Module):
 
         return tform
 
+    def test_(self, input_video_path):
+        # create video file
+        cap = cv2.VideoCapture(input_video_path)
+
+        if not cap.isOpened():
+            print(f'Error opening video file: {input_video_path}')
+            # error_message = f"Video opening error: {input_video_path}"
+            # shared_queue.put(error_message)
+            exit()
+
+        # video_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        # video_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        num_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        num_frames = int(num_frames)
+
+        frame_count = 0
+        face_detected_ptr = frame_count
+        face_detected = True
+
+        while True:
+            # loading frames
+            ret, image = cap.read()
+
+            # If the frame was not read successfully, end of the video is reached
+            if not ret:
+                break
+
+            frame_count += 1  # frame idx
+
+            kpt_mediapipe = run_mediapipe(image)
+            # no face detected
+            if kpt_mediapipe is None:
+                if face_detected_ptr > 0 and frame_count > face_detected_ptr:
+                    # indicates a case: no face detected again (maybe) at the end the video
+                    error_message = f"URL: {input_video_path}. Face is not detected at {frame_count}/{num_frames}"
+                    print(error_message)
+                    break
+                # print(f"No face is detected in frame {frame_count + 1}.")
+                face_detected = False
+                continue
+
+            if frame_count > 1 and face_detected is False:
+                # indicates a case: no face detected at the beginning of the video,
+                # face detected until reach frame {frame_count}
+                error_message = f"URL: {input_video_path}. Face is not detected at {frame_count - 1}/{num_frames}"
+                print(error_message)
+                face_detected = True
+
+            # set the pointer face_detected_ptr to current frame index
+            face_detected_ptr = frame_count
+
+
     def extract(self, args):
         input_video_path, output_3dmm_path, shared_queue = args
 
@@ -99,7 +151,7 @@ class ParamExtracting(nn.Module):
             if kpt_mediapipe is None:
                 if face_detected_ptr > 0 and frame_count > face_detected_ptr:
                     # indicates a case: no face detected again (maybe) at the end the video
-                    error_message = f"URL: {input_video_path}. Face is not detected again at {frame_count}/{num_frames}"
+                    error_message = f"URL: {input_video_path}. Face is not detected at {frame_count}/{num_frames}"
                     shared_queue.put(error_message)
                     break
                 # print(f"No face is detected in frame {frame_count + 1}.")
@@ -124,8 +176,7 @@ class ParamExtracting(nn.Module):
                     exit()
 
                 kpt_mediapipe = kpt_mediapipe[..., :2]
-                # tform = self.crop_face(image, kpt_mediapipe, scale=1.4, image_size=self.input_image_size)
-                tform = self.crop_face(image, kpt_mediapipe, scale=1.0, image_size=self.input_image_size)
+                tform = self.crop_face(image, kpt_mediapipe, scale=1.4, image_size=self.input_image_size)
 
                 cropped_image = warp(image, tform.inverse, output_shape=(224, 224), preserve_range=True).astype(
                     np.uint8)
@@ -139,13 +190,6 @@ class ParamExtracting(nn.Module):
 
             cropped_image = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB)
             cropped_image = cv2.resize(cropped_image, (224, 224))
-
-            # TODO debug: save the cropped image for review
-            debug_filename = "debug_cropped_image.png"
-            save_image = cv2.cvtColor(cropped_image, cv2.COLOR_RGB2BGR)
-            cv2.imwrite(debug_filename, save_image)
-            print(f"Debug image saved to {debug_filename}")
-            5/0
 
             cropped_image = torch.tensor(cropped_image).permute(2, 0, 1).unsqueeze(0).float() / 255.0
             cropped_image = cropped_image.to(self.cfg.device)
@@ -218,10 +262,8 @@ def main(cfg):
     model = ParamExtracting(cfg)
 
     # TODO simple test
-    input = args_list[0]
-    import queue
-    temp_queue = queue.Queue()
-    model.extract(input + (temp_queue,))
+    model.test_("/lustre/projects/Research_Project-T127204/xk219/projects/mmlm-interactive-head/test_sample.mp4")
+    5/0
 
     with Manager() as manager:
         shared_queue = manager.Queue()
