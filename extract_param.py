@@ -112,7 +112,7 @@ class ParamExtracting:
         input_video_path, output_3dmm_path, shared_queue = args
 
         # move to gpu
-        # self.smirk_encoder.to(self.cfg.device)
+        self.smirk_encoder.to(self.cfg.device)
         self.smirk_encoder.eval()
 
         # create video file
@@ -240,10 +240,15 @@ class ParamExtracting:
             error_message = f"URL: {input_video_path}. Files Saving Error"
             shared_queue.put(error_message)
 
-        # Explicitly clean up resources
-        import gc
-        torch.cuda.empty_cache()
-        gc.collect()
+        finally:
+            # Explicitly release resources
+            if cap is not None:
+                cap.release()
+
+            # Force garbage collection
+            import gc
+            torch.cuda.empty_cache()
+            gc.collect()
 
 def main(cfg):
     input_dir = cfg.input_dir
