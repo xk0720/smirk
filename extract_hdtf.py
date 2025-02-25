@@ -92,10 +92,10 @@ class ParamExtracting(nn.Module):
             kpt_mediapipe = run_mediapipe(image)
             # no face detected
             if kpt_mediapipe is None:
-                print(f"No face is detected in frame {frame_ind + 1}.")
+                # print(f"No face is detected in frame {frame_ind + 1}.")
                 error_message = f"Face detection error: {input_video_path}"
                 shared_queue.put(error_message)
-                break
+                continue
 
             # crop face if needed
             if args.crop:
