@@ -250,9 +250,10 @@ def main(cfg):
         # "/phd_data_all/UDIVA_clean/test/3D_FV_files/UDIVA/animal/FC1"
         # os.makedirs(save_dir, exist_ok=True)
 
-        name = path[:-4]
+        # name = path[:-4]
+        base_name = os.path.splitext(path)[0]
         input_path = os.path.join(input_dir, path)
-        output_path = os.path.join(output_dir, name + '.npy')
+        output_path = os.path.join(output_dir, base_name + '.npy')
         # os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
         args_list.append((input_path, output_path))
