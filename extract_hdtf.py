@@ -216,10 +216,10 @@ def main(cfg):
     model = ParamExtracting(cfg)
 
     # TODO simple test
-    # input = args_list[0]
-    # import queue
-    # temp_queue = queue.Queue()
-    # model.extract(input + (temp_queue,))
+    input = args_list[0]
+    import queue
+    temp_queue = queue.Queue()
+    model.extract(input + (temp_queue,))
 
     with Manager() as manager:
         shared_queue = manager.Queue()
