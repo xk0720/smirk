@@ -150,7 +150,6 @@ class ParamExtracting:
 
             kpt_mediapipe = run_mediapipe(image)
             print(f"kpt_mediapipe: {kpt_mediapipe}")
-            5/0
 
             # no face detected
             if kpt_mediapipe is None:
@@ -198,6 +197,9 @@ class ParamExtracting:
 
             cropped_image = torch.tensor(cropped_image).permute(2, 0, 1).unsqueeze(0).float() / 255.0
             cropped_image = cropped_image.to(self.cfg.device)
+
+            print(f"cropped_image shape: {cropped_image.shape}")
+            5/0
 
             with torch.no_grad():
                 outputs = self.smirk_encoder(cropped_image)
@@ -257,7 +259,7 @@ def main(cfg):
         args_list.append((input_path, output_path))
 
     # model.test_("/lustre/projects/Research_Project-T127204/xk219/projects/mmlm-interactive-head/test_sample.mp4")
-    print(f"args_list: {args_list}")
+    # print(f"args_list: {args_list}")
 
     with Manager() as manager:
         shared_queue = manager.Queue()
