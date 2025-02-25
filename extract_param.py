@@ -111,6 +111,7 @@ class ParamExtracting:
     def extract(self, args):
         input_video_path, output_3dmm_path, shared_queue = args
 
+        torch.cuda.empty_cache()
         # move to gpu
         self.smirk_encoder.to(self.cfg.device)
         self.smirk_encoder.eval()
@@ -187,8 +188,8 @@ class ParamExtracting:
                 cropped_image = warp(image, tform.inverse, output_shape=(224, 224), preserve_range=True).astype(
                     np.uint8)
 
-                cropped_kpt_mediapipe = np.dot(tform.params,
-                                               np.hstack([kpt_mediapipe, np.ones([kpt_mediapipe.shape[0], 1])]).T).T
+                # cropped_kpt_mediapipe = np.dot(tform.params,
+                #                                np.hstack([kpt_mediapipe, np.ones([kpt_mediapipe.shape[0], 1])]).T).T
                 # cropped_kpt_mediapipe = cropped_kpt_mediapipe[:, :2]
             else:
                 cropped_image = image
@@ -199,7 +200,6 @@ class ParamExtracting:
 
             cropped_image = torch.tensor(cropped_image).permute(2, 0, 1).unsqueeze(0).float() / 255.0
             cropped_image = cropped_image.to(self.cfg.device)
-
             # print(f"cropped_image shape: {cropped_image.shape}")
 
             with torch.no_grad():
@@ -212,9 +212,6 @@ class ParamExtracting:
 
             # save 3DMM at the moment
             coeffs_list.append(coeffs_3dmm.detach().cpu())
-
-            # if frame_count >= frame_count:
-            #     break
 
         if len(coeffs_list) == 0:
             error_message = f"URL: {input_video_path}. No face detected in the whole video"
@@ -242,6 +239,8 @@ class ParamExtracting:
             error_message = f"URL: {input_video_path}. Files Saving Error"
             shared_queue.put(error_message)
 
+        import gc
+        gc.collect()
 
 def main(cfg):
     input_dir = cfg.input_dir
