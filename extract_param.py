@@ -115,8 +115,7 @@ class ParamExtracting:
 
         # create video file
         cap = cv2.VideoCapture(input_video_path)
-        print(f"cap: {cap}")
-        5/0
+        # print(f"cap: {cap}")
 
         if not cap.isOpened():
             print(f'Error opening video file: {input_video_path}')
@@ -150,6 +149,9 @@ class ParamExtracting:
             frame_count += 1  # frame idx
 
             kpt_mediapipe = run_mediapipe(image)
+            print(f"kpt_mediapipe: {kpt_mediapipe}")
+            5/0
+
             # no face detected
             if kpt_mediapipe is None:
                 if face_detected_ptr > 0 and frame_count > face_detected_ptr:
