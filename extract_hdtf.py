@@ -25,8 +25,8 @@ class ParamExtracting(nn.Module):
         self.input_image_size = 224
 
         # load motion coefficients encoder
-        self.smirk_encoder = SmirkEncoder().to(args.device)
-        checkpoint = torch.load(args.checkpoint)
+        self.smirk_encoder = SmirkEncoder().to(self.cfg.device)
+        checkpoint = torch.load(self.cfg.checkpoint)
         checkpoint_encoder = {k.replace('smirk_encoder.', ''): v for k, v in checkpoint.items() if
                               'smirk_encoder' in k}  # checkpoint includes both smirk_encoder and smirk_generator
 
@@ -35,7 +35,7 @@ class ParamExtracting(nn.Module):
         self.smirk_encoder.share_memory()
 
         # instantiate FLAME model
-        self.flame = FLAME().to(args.device)
+        self.flame = FLAME().to(self.cfg.device)
         self.flame.share_memory()
 
     def crop_face(self, frame, landmarks, scale=1.0, image_size=224):
@@ -120,7 +120,7 @@ class ParamExtracting(nn.Module):
             cropped_image = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB)
             cropped_image = cv2.resize(cropped_image, (224, 224))
             cropped_image = torch.tensor(cropped_image).permute(2, 0, 1).unsqueeze(0).float() / 255.0
-            cropped_image = cropped_image.to(args.device)
+            cropped_image = cropped_image.to(self.cfg.device)
 
             with torch.no_grad():
                 # pose_outputs = self.pose_encoder(img)
