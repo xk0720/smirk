@@ -18,4 +18,4 @@ conda activate ai_human
 # Navigate to the project directory
 cd /lustre/projects/Research_Project-T127204/xk219/projects/ai_digital_humans_repo_summary/smirk
 
-srun python extract_param.py --num_processing=8
+srun python extract_param.py --crop
