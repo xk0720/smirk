@@ -30,7 +30,7 @@ class ParamExtracting:
         checkpoint_encoder = {k.replace('smirk_encoder.', ''): v for k, v in checkpoint.items() if
                               'smirk_encoder' in k}  # checkpoint includes both smirk_encoder and smirk_generator
         self.smirk_encoder.load_state_dict(checkpoint_encoder)
-        self.smirk_encoder.share_memory()
+        # self.smirk_encoder.share_memory()
 
         # instantiate FLAME model
         # self.flame = FLAME().to(self.cfg.device)
@@ -111,7 +111,6 @@ class ParamExtracting:
     def extract(self, args):
         input_video_path, output_3dmm_path, shared_queue = args
 
-        torch.cuda.empty_cache()
         # move to gpu
         self.smirk_encoder.to(self.cfg.device)
         self.smirk_encoder.eval()
@@ -202,6 +201,8 @@ class ParamExtracting:
             cropped_image = cropped_image.to(self.cfg.device)
             # print(f"cropped_image shape: {cropped_image.shape}")
 
+            # batch
+
             with torch.no_grad():
                 outputs = self.smirk_encoder(cropped_image)
                 expression = outputs['expression_params']
@@ -239,7 +240,9 @@ class ParamExtracting:
             error_message = f"URL: {input_video_path}. Files Saving Error"
             shared_queue.put(error_message)
 
+        # Explicitly clean up resources
         import gc
+        torch.cuda.empty_cache()
         gc.collect()
 
 def main(cfg):
