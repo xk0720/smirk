@@ -102,6 +102,8 @@ class ParamExtracting:
     def extract(self, args):
         input_video_path, output_3dmm_path, shared_queue = args
 
+        # TODO: ❓❓❓为什么在 __init__ 构造器里 instantiate 'self.smirk_encoder = SmirkEncoder()' 会出现
+        #  two many files open (multiprocessing), 而现在不会❓❓❓
         # load motion coefficients encoder
         self.smirk_encoder = SmirkEncoder()
         checkpoint = torch.load(self.cfg.checkpoint)
@@ -134,6 +136,9 @@ class ParamExtracting:
         face_detected_ptr = frame_count
         face_detected = True
         coeffs_list = []
+        # mini_batch = torch.zeros(
+        #     size=(self.cfg.batch_size, 3, self.input_image_size, self.input_image_size))
+        mini_batch = []
 
         while True:
             # loading frames
@@ -196,9 +201,16 @@ class ParamExtracting:
             cropped_image = cropped_image.to(self.cfg.device)
             # print(f"cropped_image shape: {cropped_image.shape}")
 
+            if len(mini_batch) < self.cfg.batch_size:
+                mini_batch.append(cropped_image)
+                continue
+            else:
+                cropped_images = torch.cat(mini_batch, dim=0)  # [bs, 3, 224, 224]
+                mini_batch = []
+
             with torch.no_grad():
                 print(f"smirk_encoder extracting frame {face_detected_ptr}")
-                outputs = self.smirk_encoder(cropped_image)
+                outputs = self.smirk_encoder(cropped_images.to(self.cfg.device))
                 expression = outputs['expression_params']
                 jaw = outputs['jaw_params']
                 pose = outputs['pose_params']
@@ -314,6 +326,7 @@ if __name__ == '__main__':
                         default='/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF/param')
     parser.add_argument('--device', type=str, default='cuda', help='Device to run the model on')
     parser.add_argument('--num_processing', type=int, default=8, help='number of torch processes')
+    parser.add_argument('--batch_size', type=int, default=64, help='size for minibatch of input images')
     parser.add_argument('--checkpoint', type=str,
                         default='/lustre/projects/Research_Project-T127204/xk219/projects/'
                                 'ai_digital_humans_repo_summary/smirk/pretrained_models/SMIRK_em1.pt',
