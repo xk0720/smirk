@@ -202,7 +202,7 @@ class ParamExtracting:
                 pose = outputs['pose_params']
             coeffs_3dmm = torch.cat((expression, jaw, pose), dim=-1)  # shape: [1, 56]
             # print(f"shape of coeffs_3dmm: {coeffs_3dmm.shape}")
-            
+
             # save 3DMM at the moment
             coeffs_list.append(coeffs_3dmm.detach().cpu())
 
@@ -252,12 +252,13 @@ def main(cfg):
 
         args_list.append((input_path, output_path))
 
-    model = ParamExtracting(cfg)
-
     # model.test_("/lustre/projects/Research_Project-T127204/xk219/projects/mmlm-interactive-head/test_sample.mp4")
 
     with Manager() as manager:
         shared_queue = manager.Queue()
+
+        # instantiate model
+        model = ParamExtracting(cfg)
 
         args_list = [args + (shared_queue,) for args in args_list]
         # for instance: [(input_path, output_path, shared_queue)]
