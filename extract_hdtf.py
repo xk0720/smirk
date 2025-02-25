@@ -255,7 +255,9 @@ if __name__ == '__main__':
                         default='/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF/param')
     parser.add_argument('--device', type=str, default='cuda', help='Device to run the model on')
     parser.add_argument('--num_processing', type=int, default=8, help='number of torch processes')
-    parser.add_argument('--checkpoint', type=str, default='trained_models/SMIRK_em1.pt',
+    parser.add_argument('--checkpoint', type=str,
+                        default='/lustre/projects/Research_Project-T127204/xk219/projects/'
+                                'ai_digital_humans_repo_summary/smirk/pretrained_models/SMIRK_em1.pt',
                         help='Path to the checkpoint')
     parser.add_argument('--crop', action='store_true', help='Crop the face using mediapipe')
     # parser.add_argument('--out_path', type=str, default='output',
