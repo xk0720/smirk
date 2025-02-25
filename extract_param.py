@@ -151,7 +151,7 @@ class ParamExtracting:
             frame_count += 1  # frame idx
 
             kpt_mediapipe = run_mediapipe(image)
-            print(f"kpt_mediapipe: {kpt_mediapipe}")
+            # print(f"kpt_mediapipe: {kpt_mediapipe}")
 
             # no face detected
             if kpt_mediapipe is None:
@@ -200,8 +200,7 @@ class ParamExtracting:
             cropped_image = torch.tensor(cropped_image).permute(2, 0, 1).unsqueeze(0).float() / 255.0
             cropped_image = cropped_image.to(self.cfg.device)
 
-            print(f"cropped_image shape: {cropped_image.shape}")
-            5/0
+            # print(f"cropped_image shape: {cropped_image.shape}")
 
             with torch.no_grad():
                 outputs = self.smirk_encoder(cropped_image)
