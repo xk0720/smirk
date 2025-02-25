@@ -124,7 +124,8 @@ class ParamExtracting(nn.Module):
                     exit()
 
                 kpt_mediapipe = kpt_mediapipe[..., :2]
-                tform = self.crop_face(image, kpt_mediapipe, scale=1.4, image_size=self.input_image_size)
+                # tform = self.crop_face(image, kpt_mediapipe, scale=1.4, image_size=self.input_image_size)
+                tform = self.crop_face(image, kpt_mediapipe, scale=1.0, image_size=self.input_image_size)
 
                 cropped_image = warp(image, tform.inverse, output_shape=(224, 224), preserve_range=True).astype(
                     np.uint8)
