@@ -18,7 +18,7 @@ import torch.multiprocessing as mp
 from multiprocessing import Manager
 
 
-class ParamExtracting(nn.Module):
+class ParamExtracting:
     def __init__(self, cfg):
         super().__init__()
         self.cfg = cfg
@@ -202,9 +202,7 @@ class ParamExtracting(nn.Module):
                 pose = outputs['pose_params']
             coeffs_3dmm = torch.cat((expression, jaw, pose), dim=-1)  # shape: [1, 56]
             # print(f"shape of coeffs_3dmm: {coeffs_3dmm.shape}")
-
-            coeffs_list.append(coeffs_3dmm)
-
+            
             # save 3DMM at the moment
             coeffs_list.append(coeffs_3dmm.detach().cpu())
 
