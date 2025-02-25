@@ -35,8 +35,8 @@ class ParamExtracting(nn.Module):
         self.smirk_encoder.share_memory()
 
         # instantiate FLAME model
-        self.flame = FLAME().to(self.cfg.device)
-        self.flame.share_memory()
+        # self.flame = FLAME().to(self.cfg.device)
+        # self.flame.share_memory()
 
     def crop_face(self, frame, landmarks, scale=1.0, image_size=224):
         left = np.min(landmarks[:, 0])
