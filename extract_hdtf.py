@@ -65,7 +65,7 @@ class ParamExtracting(nn.Module):
         cap = cv2.VideoCapture(input_video_path)
 
         if not cap.isOpened():
-            print('Error opening video file')
+            print(f'Error opening video file: {input_video_path}')
             error_message = f"Video opening error: {input_video_path}"
             shared_queue.put(error_message)
             exit()
