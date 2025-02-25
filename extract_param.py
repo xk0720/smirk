@@ -172,9 +172,9 @@ class ParamExtracting:
 
             # crop face if needed
             if self.cfg.crop:
-                if (kpt_mediapipe is None):
-                    print('Could not find landmarks for the image using mediapipe and cannot crop the face. Exiting...')
-                    exit()
+                # if (kpt_mediapipe is None):
+                #     print('Could not find landmarks for the image using mediapipe and cannot crop the face. Exiting...')
+                #     exit()
 
                 kpt_mediapipe = kpt_mediapipe[..., :2]
                 tform = self.crop_face(image, kpt_mediapipe, scale=1.4, image_size=self.input_image_size)
@@ -197,6 +197,7 @@ class ParamExtracting:
             # print(f"cropped_image shape: {cropped_image.shape}")
 
             with torch.no_grad():
+                print(f"smirk_encoder extracting frame {face_detected_ptr}")
                 outputs = self.smirk_encoder(cropped_image)
                 expression = outputs['expression_params']
                 jaw = outputs['jaw_params']
