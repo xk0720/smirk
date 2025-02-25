@@ -25,13 +25,11 @@ class ParamExtracting:
         self.input_image_size = 224
 
         # load motion coefficients encoder
-        self.smirk_encoder = SmirkEncoder().to(self.cfg.device)
+        self.smirk_encoder = SmirkEncoder()
         checkpoint = torch.load(self.cfg.checkpoint)
         checkpoint_encoder = {k.replace('smirk_encoder.', ''): v for k, v in checkpoint.items() if
                               'smirk_encoder' in k}  # checkpoint includes both smirk_encoder and smirk_generator
-
         self.smirk_encoder.load_state_dict(checkpoint_encoder)
-        self.smirk_encoder.eval()
         self.smirk_encoder.share_memory()
 
         # instantiate FLAME model
@@ -112,6 +110,10 @@ class ParamExtracting:
 
     def extract(self, args):
         input_video_path, output_3dmm_path, shared_queue = args
+
+        # move to gpu
+        self.smirk_encoder.to(self.cfg.device)
+        self.smirk_encoder.eval()
 
         # create video file
         cap = cv2.VideoCapture(input_video_path)
