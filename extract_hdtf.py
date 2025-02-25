@@ -120,7 +120,8 @@ class ParamExtracting(nn.Module):
             print(f'Error opening video file: {input_video_path}')
             # error_message = f"Video opening error: {input_video_path}"
             # shared_queue.put(error_message)
-            exit()
+            return
+            # exit()
 
         # get the original frame rate of the video
         # todo further processing based on fps?
@@ -143,7 +144,7 @@ class ParamExtracting(nn.Module):
             # If the frame was not read successfully, end of the video is reached
             if not ret:
                 break
-                
+
             frame_count += 1  # frame idx
 
             kpt_mediapipe = run_mediapipe(image)
@@ -162,7 +163,7 @@ class ParamExtracting(nn.Module):
                 # indicates a case: no face detected at the beginning of the video,
                 # face detected until reach frame {frame_count}
                 error_message = f"URL: {input_video_path}. Face is not detected at {frame_count-1}/{num_frames}"
-                print(error_message)
+                # print(error_message)
                 shared_queue.put(error_message)
                 face_detected = True
 
@@ -210,13 +211,13 @@ class ParamExtracting(nn.Module):
             # if frame_count >= frame_count:
             #     break
 
-        # if len(coeffs_list) < frame_count:
-        #     print("Some frames have no faces detected.")
-        # else:
-        # print("All frames detected faces, saving npy file ...")
-        all_coeffs = torch.stack(coeffs_list, dim=0).numpy()
-        # print("The shape of extracted 3DMM coefficients: ", all_coeffs.shape)
+        if len(coeffs_list) == 0:
+            error_message = f"URL: {input_video_path}. No face detected in the whole video"
+            shared_queue.put(error_message)
+            return
 
+        # print("The shape of extracted 3DMM coefficients: ", all_coeffs.shape)
+        all_coeffs = torch.stack(coeffs_list, dim=0).numpy()
         try:
             # Save the array
             np.save(output_3dmm_path, all_coeffs)
