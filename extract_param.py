@@ -246,10 +246,6 @@ def main(cfg):
     path_list = os.listdir(input_dir)
     args_list = []
     for path in path_list:
-        # save_dir = '/'.join(os.path.join(output_dir, path).split('/')[:-1])
-        # "/phd_data_all/UDIVA_clean/test/3D_FV_files/UDIVA/animal/FC1"
-        # os.makedirs(save_dir, exist_ok=True)
-
         # name = path[:-4]
         base_name = os.path.splitext(path)[0]
         input_path = os.path.join(input_dir, path)
@@ -257,9 +253,6 @@ def main(cfg):
         # os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
         args_list.append((input_path, output_path))
-        # example:
-        # ('/root/autodl-tmp/PhD_code_exp/phd_data_all/UDIVA_clean/test/Video_files/UDIVA/talk/188189/FC2/9.mp4',
-        # '/root/autodl-tmp/PhD_code_exp/phd_data_all/UDIVA_clean/test/3D_FV_files/UDIVA/talk/188189/FC2/9.npy')
 
     model = ParamExtracting(cfg)
 
@@ -268,7 +261,7 @@ def main(cfg):
     with Manager() as manager:
         shared_queue = manager.Queue()
 
-        args_list = [args + shared_queue for args in args_list]
+        args_list = [args + (shared_queue,) for args in args_list]
         # for instance: [(input_path, output_path, shared_queue)]
 
         total_tasks = len(args_list)
