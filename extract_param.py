@@ -106,6 +106,7 @@ class ParamExtracting:
             expression = outputs['expression_params']
             jaw = outputs['jaw_params']
             pose = outputs['pose_params']
+            print(f"shape of expression, jaw, pose: {expression.shape}; {jaw.shape}; {pose.shape}")
 
         return expression, jaw, pose
 
