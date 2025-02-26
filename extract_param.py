@@ -99,10 +99,10 @@ class ParamExtracting:
     #         # set the pointer face_detected_ptr to current frame index
     #         face_detected_ptr = frame_count
 
-    def forward(self, cropped_images, face_detected_ptr):
+    def forward(self, smirk_encoder, cropped_images, face_detected_ptr):
         with torch.no_grad():
             print(f"smirk_encoder extracting frame {face_detected_ptr}")
-            outputs = self.smirk_encoder(cropped_images.to(self.cfg.device))
+            outputs = smirk_encoder(cropped_images.to(self.cfg.device))
             expression = outputs['expression_params']
             jaw = outputs['jaw_params']
             pose = outputs['pose_params']
@@ -112,17 +112,19 @@ class ParamExtracting:
     def extract(self, args):
         input_video_path, output_3dmm_path, shared_queue = args
 
-        # TODO: ❓❓❓为什么在 __init__ 构造器里 instantiate 'self.smirk_encoder = SmirkEncoder()' 会出现
+        # TODO❓❓❓为什么在 __init__ 构造器里 instantiate 'self.smirk_encoder = SmirkEncoder()' 会出现
         #  two many files open (multiprocessing), 而现在不会❓❓❓
         # load motion coefficients encoder
-        self.smirk_encoder = SmirkEncoder()
+
+        # TODO❓❓❓现在的问题是在进程结束 extract 方法之后是否会释放显存资源 (从而避免OOM)?
+        smirk_encoder = SmirkEncoder()  # self.smirk_encoder = SmirkEncoder()
         checkpoint = torch.load(self.cfg.checkpoint)
         checkpoint_encoder = {k.replace('smirk_encoder.', ''): v for k, v in checkpoint.items() if
                               'smirk_encoder' in k}  # checkpoint includes both smirk_encoder and smirk_generator
-        self.smirk_encoder.load_state_dict(checkpoint_encoder)
+        smirk_encoder.load_state_dict(checkpoint_encoder)  # self.smirk_encoder.load_state_dict(checkpoint_encoder)
         # self.smirk_encoder.share_memory()
-        self.smirk_encoder.to(self.cfg.device)  # move to gpu
-        self.smirk_encoder.eval()
+        smirk_encoder.to(self.cfg.device)  # self.smirk_encoder.to(self.cfg.device)  # move to gpu
+        smirk_encoder.eval()  # self.smirk_encoder.eval()
 
         # create video file
         cap = cv2.VideoCapture(input_video_path)
@@ -158,7 +160,7 @@ class ParamExtracting:
             if not ret:
                 if len(mini_batch) > 0:
                     cropped_images = torch.cat(mini_batch, dim=0)
-                    outputs = self.forward(cropped_images, face_detected_ptr)
+                    outputs = self.forward(smirk_encoder, cropped_images, face_detected_ptr)
                     coeffs_3dmm = torch.cat(outputs, dim=-1)  # shape: [bs, 56]
                     coeffs_list.append(coeffs_3dmm.detach().cpu())
 
@@ -176,7 +178,7 @@ class ParamExtracting:
                     
                     if len(mini_batch) > 0:
                         cropped_images = torch.cat(mini_batch, dim=0)
-                        outputs = self.forward(cropped_images, face_detected_ptr)
+                        outputs = self.forward(smirk_encoder, cropped_images, face_detected_ptr)
                         coeffs_3dmm = torch.cat(outputs, dim=-1)  # shape: [bs, 56]
                         coeffs_list.append(coeffs_3dmm.detach().cpu())
 
@@ -230,7 +232,7 @@ class ParamExtracting:
                 cropped_images = torch.cat(mini_batch, dim=0)  # [bs, 3, 224, 224]
                 mini_batch = []
 
-            outputs = self.forward(cropped_images, face_detected_ptr)
+            outputs = self.forward(smirk_encoder, cropped_images, face_detected_ptr)
             coeffs_3dmm = torch.cat(outputs, dim=-1)  # shape: [bs, 56]
             coeffs_list.append(coeffs_3dmm.detach().cpu())
 
