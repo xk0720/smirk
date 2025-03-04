@@ -372,6 +372,12 @@ def main(video_dir: str, model_path: str, result_dir: str,
     fps = cap.get(cv2.CAP_PROP_FPS)
     target_size = (224, 224)
 
+    # get height and width
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    print(f"height: {height}, width: {width}")
+    5/0
+
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
