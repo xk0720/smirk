@@ -3,11 +3,16 @@ import cv2
 import torch
 import numpy as np
 import torch.multiprocessing as mp
+from torch import Tensor
 from torch.multiprocessing import Queue, Process
 import time
 from pathlib import Path
 from typing import List, Dict, Tuple, Optional
 import traceback
+from skimage.transform import estimate_transform, warp
+from utils.mediapipe_utils import run_mediapipe
+from src import smirk_encoder
+from src.smirk_encoder import SmirkEncoder
 
 
 class FrameExtractor:
@@ -20,9 +25,30 @@ class FrameExtractor:
             target_size: Size to resize frames to (height, width)
         """
         self.frame_interval = frame_interval
+        self.input_size = 224
         self.target_size = target_size
 
-    def extract_frames(self, video_path: str) -> Tuple[List[np.ndarray], float]:
+    def crop_face(self, frame, landmarks, scale=1.0, image_size=224):
+        left = np.min(landmarks[:, 0])
+        right = np.max(landmarks[:, 0])
+        top = np.min(landmarks[:, 1])
+        bottom = np.max(landmarks[:, 1])
+
+        h, w, _ = frame.shape
+        old_size = (right - left + bottom - top) / 2
+        center = np.array([right - (right - left) / 2.0, bottom - (bottom - top) / 2.0])
+
+        size = int(old_size * scale)
+
+        # crop image
+        src_pts = np.array([[center[0] - size / 2, center[1] - size / 2], [center[0] - size / 2, center[1] + size / 2],
+                            [center[0] + size / 2, center[1] - size / 2]])
+        DST_PTS = np.array([[0, 0], [0, image_size - 1], [image_size - 1, 0]])
+        tform = estimate_transform('similarity', src_pts, DST_PTS)
+
+        return tform
+
+    def extract_frames(self, video_path: str) -> tuple[list[Tensor], float]:
         """Extract frames from a video file.
 
         Args:
@@ -44,19 +70,38 @@ class FrameExtractor:
             if not ret:
                 break
 
-            if frame_count % self.frame_interval == 0:
-                # Convert from BGR to RGB
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                # Resize frame
-                frame = cv2.resize(frame, self.target_size[::-1])  # cv2 expects (width, height)
-                frames.append(frame)
+            # if frame_count % self.frame_interval == 0:
+            kpt_mediapipe = run_mediapipe(frame)
+
+            if kpt_mediapipe is None:
+                print('Could not find landmarks for the image using mediapipe and cannot crop the face. Exiting...')
+                # exit()
+
+            kpt_mediapipe = kpt_mediapipe[..., :2]
+            tform = self.crop_face(frame, kpt_mediapipe, scale=1.2, image_size=self.input_size)
+
+            cropped_image = warp(frame, tform.inverse, output_shape=self.target_size, preserve_range=True).astype(
+                np.uint8)
+            # cropped_kpt_mediapipe = np.dot(tform.params,
+            #                                np.hstack([kpt_mediapipe, np.ones([kpt_mediapipe.shape[0], 1])]).T).T
+            # cropped_kpt_mediapipe = cropped_kpt_mediapipe[:, :2]
+
+            # Convert from BGR to RGB
+            cropped_image = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB)
+            cropped_image = cv2.resize(cropped_image, self.target_size)
+            cropped_image = torch.tensor(cropped_image).permute(2, 0, 1).unsqueeze(0).float() / 255.0
+            # [3, 224, 224]
+
+            # Resize frame
+            # frame = cv2.resize(frame, self.target_size[::-1])  # cv2 expects (width, height)
+            frames.append(cropped_image)
 
             frame_count += 1
 
         cap.release()
         return frames, fps
 
-    def preprocess_frames(self, frames: List[np.ndarray]) -> torch.Tensor:
+    def preprocess_frames(self, frames: List[Tensor]) -> torch.Tensor:
         """Prepare frames for the 3DMM model.
 
         Args:
@@ -66,18 +111,19 @@ class FrameExtractor:
             Tensor of preprocessed frames
         """
         # Stack frames into a batch
-        batch = np.stack(frames, axis=0)
+        # batch = np.stack(frames, axis=0)
+        batch = torch.stack(frames, dim=0)
 
-        # Convert to float and normalize to [0, 1]
-        batch = batch.astype(np.float32) / 255.0
-
-        # Normalize using ImageNet stats (if your model expects this)
-        mean = np.array([0.485, 0.456, 0.406]).reshape(1, 1, 1, 3)
-        std = np.array([0.229, 0.224, 0.225]).reshape(1, 1, 1, 3)
-        batch = (batch - mean) / std
-
-        # Convert to PyTorch tensor and move channel dimension to position 1
-        batch = torch.from_numpy(batch).permute(0, 3, 1, 2)
+        # # Convert to float and normalize to [0, 1]
+        # batch = batch.astype(np.float32) / 255.0
+        #
+        # # Normalize using ImageNet stats (if your model expects this)
+        # mean = np.array([0.485, 0.456, 0.406]).reshape(1, 1, 1, 3)
+        # std = np.array([0.229, 0.224, 0.225]).reshape(1, 1, 1, 3)
+        # batch = (batch - mean) / std
+        #
+        # # Convert to PyTorch tensor and move channel dimension to position 1
+        # batch = torch.from_numpy(batch).permute(0, 3, 1, 2)
 
         return batch
 
@@ -105,9 +151,19 @@ class Model3DMM:
         Returns:
             Loaded model
         """
-        # Example for loading a PyTorch model
-        model = torch.load(model_path, map_location=self.device)
-        model.eval()  # Set to evaluation mode
+
+        checkpoint = torch.load(model_path)
+        checkpoint_encoder = {k.replace('smirk_encoder.', ''): v for k, v in checkpoint.items() if
+                              'smirk_encoder' in k}  # checkpoint includes both smirk_encoder and smirk_generator
+        model = SmirkEncoder()
+        model.load_state_dict(checkpoint_encoder)  # self.smirk_encoder.load_state_dict(checkpoint_encoder)
+        model.to(self.device)
+        model.eval()
+
+        # # Example for loading a PyTorch model
+        # model = torch.load(model_path, map_location=self.device)
+        # model.eval()  # Set to evaluation model
+
         return model
 
     @torch.no_grad()  # Disable gradient computation for inference
@@ -147,13 +203,11 @@ def inference_worker(model_path: str, input_queue: Queue, output_queue: Queue, g
         gpu_id: GPU device ID to use
     """
     try:
-        # Set the device
+        # Set the device, default cuda:0
         device = f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu"
-
         # Load the model
         model = Model3DMM(model_path, device)
-
-        print(f"Inference worker started on {device}")
+        # print(f"Inference worker started on {device}")
 
         while True:
             # Get data from the input queue
@@ -205,7 +259,7 @@ def video_processor(video_path: str, video_id: str, input_queue: Queue,
 
         # Process frames in batches
         for i in range(0, len(frames), batch_size):
-            batch_frames = frames[i:i + batch_size]
+            batch_frames = frames[i:i + batch_size]  # maintain the remainder
 
             # Preprocess frames
             frames_batch = extractor.preprocess_frames(batch_frames)
@@ -214,6 +268,10 @@ def video_processor(video_path: str, video_id: str, input_queue: Queue,
             input_queue.put((f"{video_id}_{i // batch_size}", frames_batch))
 
     except Exception as e:
+
+        # TODO save errors in record_queue?
+        ...
+
         print(f"Error processing video {video_path}: {e}")
         traceback.print_exc()
 
@@ -249,8 +307,8 @@ def result_collector(output_queue: Queue, result_dir: str, expected_workers: int
             video_id, parameters = result
 
             # Save the parameters
-            output_path = os.path.join(result_dir, f"{video_id}_3dmm_params.npz")
-            np.savez(output_path, **parameters)
+            output_path = os.path.join(result_dir, f"{video_id}.npy")
+            np.save(output_path, **parameters)
 
             print(f"Saved parameters for {video_id} to {output_path}")
 
@@ -260,7 +318,7 @@ def result_collector(output_queue: Queue, result_dir: str, expected_workers: int
 
 
 def main(video_dir: str, model_path: str, result_dir: str,
-         num_workers: int = 4, gpu_ids: List[int] = [0],
+         num_workers: int = 8, gpu_ids: List[int] = [0],
          frame_interval: int = 1, batch_size: int = 32):
     """Main function to extract 3DMM parameters from videos.
 
@@ -268,15 +326,15 @@ def main(video_dir: str, model_path: str, result_dir: str,
         video_dir: Directory containing video files
         model_path: Path to the 3DMM model
         result_dir: Directory to save results to
-        num_workers: Number of video processing workers
+        num_workers: Number of video inference workers
         gpu_ids: List of GPU IDs to use
         frame_interval: Extract every nth frame
         batch_size: Number of frames to process at once
     """
     # Make sure CUDA is available if GPU IDs are specified
-    if gpu_ids and not torch.cuda.is_available():
-        print("CUDA not available, falling back to CPU")
-        gpu_ids = []
+    # if gpu_ids and not torch.cuda.is_available():
+    #     print("CUDA not available, falling back to CPU")
+    #     gpu_ids = []
 
     # Find all video files
     video_files = []
@@ -290,17 +348,26 @@ def main(video_dir: str, model_path: str, result_dir: str,
     print(f"Found {len(video_files)} video files")
 
     # Initialize queues
-    input_queues = [Queue() for _ in range(len(gpu_ids) or 1)]
+    input_queues = [Queue() for _ in range(num_workers)]
+    # input_queues = [Queue() for _ in range(len(gpu_ids) or 1)]
     output_queue = Queue()
+    record_queue = Queue()
 
     # Start inference workers (one per GPU, or one on CPU if no GPUs)
     inference_processes = []
-    for i, gpu_id in enumerate(gpu_ids) if gpu_ids else [(0, None)]:
-        p = Process(target=inference_worker,
-                    args=(model_path, input_queues[i], output_queue),
-                    kwargs={'gpu_id': gpu_id} if gpu_ids else {})
+
+    for i in range(num_workers):
+        # TODO multi-process share same GPU?
+        p =  Process(target=inference_worker,
+                     args=(model_path, input_queues[i], output_queue))
         p.start()
         inference_processes.append(p)
+    # for i, gpu_id in enumerate(gpu_ids) if gpu_ids else [(0, None)]:
+    #     p = Process(target=inference_worker,
+    #                 args=(model_path, input_queues[i], output_queue),
+    #                 kwargs={'gpu_id': gpu_id} if gpu_ids else {})
+    #     p.start()
+    #     inference_processes.append(p)
 
     # Start result collector
     collector_process = Process(target=result_collector,
@@ -335,6 +402,12 @@ def main(video_dir: str, model_path: str, result_dir: str,
 
     # Wait for result collector to complete
     collector_process.join()
+
+    # check record_queue, saving to json/txt
+    while not record_queue.empty():
+        message = record_queue.get()
+
+        print("record_queue empty")
 
     print("All processing complete!")
 

@@ -48,57 +48,6 @@ class ParamExtracting:
 
         return tform
 
-    # def test_(self, input_video_path):
-    #     # create video file
-    #     cap = cv2.VideoCapture(input_video_path)
-    #
-    #     if not cap.isOpened():
-    #         print(f'Error opening video file: {input_video_path}')
-    #         # error_message = f"Video opening error: {input_video_path}"
-    #         # shared_queue.put(error_message)
-    #         exit()
-    #
-    #     # video_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    #     # video_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    #     num_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-    #     num_frames = int(num_frames)
-    #
-    #     frame_count = 0
-    #     face_detected_ptr = frame_count
-    #     face_detected = True
-    #
-    #     while True:
-    #         # loading frames
-    #         ret, image = cap.read()
-    #
-    #         # If the frame was not read successfully, end of the video is reached
-    #         if not ret:
-    #             break
-    #
-    #         frame_count += 1  # frame idx
-    #
-    #         kpt_mediapipe = run_mediapipe(image)
-    #         # no face detected
-    #         if kpt_mediapipe is None:
-    #             if face_detected_ptr > 0 and frame_count > face_detected_ptr:
-    #                 # indicates a case: no face detected again (maybe) at the end the video
-    #                 error_message = f"URL: {input_video_path}. Face is not detected at {frame_count}/{num_frames}"
-    #                 print(error_message)
-    #                 break
-    #             # print(f"No face is detected in frame {frame_count + 1}.")
-    #             face_detected = False
-    #             continue
-    #
-    #         if frame_count > 1 and face_detected is False:
-    #             # indicates a case: no face detected at the beginning of the video,
-    #             # face detected until reach frame {frame_count}
-    #             error_message = f"URL: {input_video_path}. Face is detected at {frame_count}/{num_frames}"
-    #             print(error_message)
-    #             face_detected = True
-    #
-    #         # set the pointer face_detected_ptr to current frame index
-    #         face_detected_ptr = frame_count
-
     def forward(self, smirk_encoder, cropped_images, face_detected_ptr):
         with torch.no_grad():
             print(f"smirk_encoder extracting frame {face_detected_ptr}")
