@@ -26,7 +26,7 @@ class FrameExtractor:
             target_size: Size to resize frames to (height, width)
         """
         self.frame_interval = frame_interval
-        self.input_size = 224
+        self.input_size = 512
         self.target_size = target_size
 
     def crop_face(self, frame, landmarks, scale=1.0, image_size=224):
