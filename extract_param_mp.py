@@ -396,10 +396,11 @@ def main(video_dir: str, model_path: str, result_dir: str,
 
     for i in range(num_workers):
         # TODO multi-process share same GPU?
-        p =  Process(target=inference_worker,
-                     args=(model_path, input_queues[i], output_queue))
+        p = Process(target=inference_worker,
+                    args=(model_path, input_queues[i], output_queue))
         p.start()
         inference_processes.append(p)
+    print("inference processes started")
     # for i, gpu_id in enumerate(gpu_ids) if gpu_ids else [(0, None)]:
     #     p = Process(target=inference_worker,
     #                 args=(model_path, input_queues[i], output_queue),
@@ -411,6 +412,7 @@ def main(video_dir: str, model_path: str, result_dir: str,
     collector_process = Process(target=result_collector,
                                 args=(output_queue, result_dir, len(inference_processes)))
     collector_process.start()
+    print("collecting process started")
 
     num_video_workers = num_workers
     #Method 1:
@@ -430,6 +432,8 @@ def main(video_dir: str, model_path: str, result_dir: str,
                     args=(i, video_batch, input_queues[queue_idx], frame_interval, batch_size))
         p.start()
         processing_processes.append(p)
+    print("video processing processes started")
+
     # Wait for video processing to complete
     for p in processing_processes:
         p.join()
