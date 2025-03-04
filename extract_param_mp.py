@@ -3,6 +3,7 @@ import cv2
 import torch
 import numpy as np
 import torch.multiprocessing as mp
+from numpy import ndarray
 from torch import Tensor
 from torch.multiprocessing import Queue, Process
 import time
@@ -73,9 +74,9 @@ class FrameExtractor:
             # if frame_count % self.frame_interval == 0:
             kpt_mediapipe = run_mediapipe(frame)
 
-            if kpt_mediapipe is None:
-                print('Could not find landmarks for the image using mediapipe and cannot crop the face. Exiting...')
-                # exit()
+            # if kpt_mediapipe is None:
+            #     print('Could not find landmarks for the image using mediapipe and cannot crop the face. Exiting...')
+            #     # exit()
 
             kpt_mediapipe = kpt_mediapipe[..., :2]
             tform = self.crop_face(frame, kpt_mediapipe, scale=1.2, image_size=self.input_size)
@@ -167,7 +168,7 @@ class Model3DMM:
         return model
 
     @torch.no_grad()  # Disable gradient computation for inference
-    def extract_parameters(self, frames_batch: torch.Tensor) -> Dict[str, np.ndarray]:
+    def extract_parameters(self, frames_batch: torch.Tensor) -> ndarray:
         """Extract 3DMM parameters from preprocessed frames.
 
         Args:
@@ -180,15 +181,18 @@ class Model3DMM:
 
         # Run inference
         outputs = self.model(frames_batch)
+        expression = outputs['expression_params'].cpu()
+        jaw = outputs['jaw_params'].cpu()
+        pose = outputs['pose_params'].cpu()
+        parameters = torch.cat((expression, jaw, pose), dim=-1).numpy()
 
         # Process outputs - this will depend on your model's output format
         # Example output processing:
-        parameters = {
-            'shape': outputs['shape_params'].cpu().numpy(),
-            'expression': outputs['exp_params'].cpu().numpy(),
-            'pose': outputs['pose_params'].cpu().numpy(),
-            'texture': outputs['tex_params'].cpu().numpy() if 'tex_params' in outputs else None
-        }
+        # parameters = {
+        #     'expression': outputs['expression_params'].cpu().numpy(),
+        #     'jaw': outputs['jaw_params'].cpu().numpy(),
+        #     'pose': outputs['pose_params'].cpu().numpy(),
+        # }
 
         return parameters
 
@@ -268,10 +272,6 @@ def video_processor(video_path: str, video_id: str, input_queue: Queue,
             input_queue.put((f"{video_id}_{i // batch_size}", frames_batch))
 
     except Exception as e:
-
-        # TODO save errors in record_queue?
-        ...
-
         print(f"Error processing video {video_path}: {e}")
         traceback.print_exc()
 
@@ -340,18 +340,23 @@ def main(video_dir: str, model_path: str, result_dir: str,
     video_files = []
     for ext in ['.mp4', '.avi', '.mov', '.mkv']:
         video_files.extend(list(Path(video_dir).glob(f"*{ext}")))
+    print(f"video_files: {video_files}")
 
     if not video_files:
         print(f"No video files found in {video_dir}")
         return
 
+    for i, video_path in enumerate(video_files):
+        video_id = video_path.stem
+        print(f"video id: {video_id}")
+
     print(f"Found {len(video_files)} video files")
+    5/0
 
     # Initialize queues
     input_queues = [Queue() for _ in range(num_workers)]
     # input_queues = [Queue() for _ in range(len(gpu_ids) or 1)]
     output_queue = Queue()
-    record_queue = Queue()
 
     # Start inference workers (one per GPU, or one on CPU if no GPUs)
     inference_processes = []
@@ -403,12 +408,6 @@ def main(video_dir: str, model_path: str, result_dir: str,
     # Wait for result collector to complete
     collector_process.join()
 
-    # check record_queue, saving to json/txt
-    while not record_queue.empty():
-        message = record_queue.get()
-
-        print("record_queue empty")
-
     print("All processing complete!")
 
 
@@ -416,13 +415,20 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Extract 3DMM parameters from videos")
-    parser.add_argument("--video_dir", type=str, required=True, help="Directory containing video files")
-    parser.add_argument("--model_path", type=str, required=True, help="Path to the 3DMM model")
-    parser.add_argument("--result_dir", type=str, required=True, help="Directory to save results to")
+    parser.add_argument("--video_dir", type=str,
+                        default="/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF/face_cropped",
+                        help="Directory containing video files")
+    parser.add_argument("--model_path", type=str,
+                        default="/lustre/projects/Research_Project-T127204/xk219/projects/ai_digital_humans_repo_summary"
+                                "/smirk/pretrained_models/SMIRK_em1.pt",
+                        help="Path to the 3DMM model")
+    parser.add_argument("--result_dir", type=str,
+                        default="/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF/param",
+                        help="Directory to save results to")
     parser.add_argument("--num_workers", type=int, default=4, help="Number of video processing workers")
     parser.add_argument("--gpu_ids", type=int, nargs="+", default=[0], help="GPU IDs to use")
     parser.add_argument("--frame_interval", type=int, default=1, help="Extract every nth frame")
-    parser.add_argument("--batch_size", type=int, default=32, help="Number of frames to process at once")
+    parser.add_argument("--batch_size", type=int, default=64, help="Number of frames to process at once")
 
     args = parser.parse_args()
 
