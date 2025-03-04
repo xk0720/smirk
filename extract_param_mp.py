@@ -239,6 +239,31 @@ def inference_worker(model_path: str, input_queue: Queue, output_queue: Queue, g
         output_queue.put(None)
 
 
+def video_processor_worker(worker_id, video_paths, input_queue, frame_interval=1, batch_size=32,
+                           target_size: Tuple[int, int] = (224, 224)):
+    """Process a subset of videos and send frames to the inference queue"""
+    extractor = FrameExtractor(frame_interval, target_size)
+
+    for video_path in video_paths:
+        video_id = video_path.stem
+        try:
+            # Extract frames
+            frames, fps = extractor.extract_frames(str(video_path))
+            print(f"Worker {worker_id}: Extracted {len(frames)} frames from {video_path}")
+
+            # Process frames in batches
+            for i in range(0, len(frames), batch_size):
+                batch_frames = frames[i:i + batch_size]
+                frames_batch = extractor.preprocess_frames(batch_frames)
+                input_queue.put((f"{video_id}_{i // batch_size}", frames_batch))
+        except Exception as e:
+            print(f"Error processing video {video_path}: {e}")
+            traceback.print_exc()
+
+    # Signal completion
+    return f"Worker {worker_id} completed processing {len(video_paths)} videos"
+
+
 def video_processor(video_path: str, video_id: str, input_queue: Queue,
                     frame_interval: int = 1, target_size: Tuple[int, int] = (224, 224),
                     batch_size: int = 32):
@@ -317,27 +342,6 @@ def result_collector(output_queue: Queue, result_dir: str, expected_workers: int
         traceback.print_exc()
 
 
-def crop_face(frame, landmarks, scale=1.0, image_size=224):
-    left = np.min(landmarks[:, 0])
-    right = np.max(landmarks[:, 0])
-    top = np.min(landmarks[:, 1])
-    bottom = np.max(landmarks[:, 1])
-
-    h, w, _ = frame.shape
-    old_size = (right - left + bottom - top) / 2
-    center = np.array([right - (right - left) / 2.0, bottom - (bottom - top) / 2.0])
-
-    size = int(old_size * scale)
-
-    # crop image
-    src_pts = np.array([[center[0] - size / 2, center[1] - size / 2], [center[0] - size / 2, center[1] + size / 2],
-                        [center[0] + size / 2, center[1] - size / 2]])
-    DST_PTS = np.array([[0, 0], [0, image_size - 1], [image_size - 1, 0]])
-    tform = estimate_transform('similarity', src_pts, DST_PTS)
-
-    return tform
-
-
 def process_single_video(video_info, frame_interval=1, batch_size=32, input_queues=None):
     i, video_path = video_info
     video_id = video_path.stem
@@ -408,26 +412,47 @@ def main(video_dir: str, model_path: str, result_dir: str,
                                 args=(output_queue, result_dir, len(inference_processes)))
     collector_process.start()
 
-    #Method1:
-    from functools import partial
-    num_video_workers = 8
+    num_video_workers = num_workers
+    #Method 1:
+    # Divide videos among workers instead of creating a process per video
+    video_batches = []
+    bs = len(video_files) // num_video_workers
+    for i in range(num_video_workers):
+        start_idx = i * bs
+        end_idx = start_idx + bs if i < num_video_workers - 1 else len(video_files)
+        video_batches.append(video_files[start_idx:end_idx])
+    # Start video processing workers - one process per batch of videos
+    processing_processes = []
+    for i, video_batch in enumerate(video_batches):
+        # Each worker processes a batch of videos and sends frames to a specific queue
+        queue_idx = i % len(input_queues)
+        p = Process(target=video_processor_worker,
+                    args=(i, video_batch, input_queues[queue_idx], frame_interval, batch_size))
+        p.start()
+        processing_processes.append(p)
+    # Wait for video processing to complete
+    for p in processing_processes:
+        p.join()
+    print("All video processing workers have completed")
 
-    process_func = partial(process_single_video,
-                           frame_interval=frame_interval,
-                           batch_size=batch_size,
-                           input_queues=input_queues)
+    # #TODO Method 2: RuntimeError: Queue objects should only be shared between processes through inheritance
+    # from functools import partial
+    # process_func = partial(process_single_video,
+    #                        frame_interval=frame_interval,
+    #                        batch_size=batch_size,
+    #                        input_queues=input_queues)
+    #
+    # with mp.Pool(processes=num_video_workers) as pool:
+    #     video_infos = list(enumerate(video_files))
+    #     results = pool.map(process_func, video_infos)
 
-    with mp.Pool(processes=num_video_workers) as pool:
-        video_infos = list(enumerate(video_files))
-        results = pool.map(process_func, video_infos)
-
-    # #Method 2: Start video processing workers
+    # #TODO Method 3: Start video processing workers
     # processing_processes = []
     # for i, video_path in enumerate(video_files):
     #     video_id = video_path.stem
     #     # Distribute videos across available inference workers
     #     queue_idx = i % len(input_queues)
-    #     # TODO Potential problem? Each process consumes system resources (memory, file descriptors, process IDs).
+    #     # TODO ❓Potential problem? Each process consumes system resources (memory, file descriptors, process IDs).
     #     #  If too many processes are created simultaneously, it could exhaust system resources.
     #     p = Process(target=video_processor,
     #                 args=(str(video_path), video_id, input_queues[queue_idx]),
