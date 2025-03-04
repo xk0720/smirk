@@ -90,7 +90,7 @@ class FrameExtractor:
             # Convert from BGR to RGB
             cropped_image = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB)
             cropped_image = cv2.resize(cropped_image, self.target_size)
-            cropped_image = torch.tensor(cropped_image).permute(2, 0, 1).unsqueeze(0).float() / 255.0
+            cropped_image = torch.tensor(cropped_image).permute(2, 0, 1).float() / 255.0
             # [3, 224, 224]
 
             # Resize frame
@@ -396,7 +396,7 @@ def main(video_dir: str, model_path: str, result_dir: str,
         # Convert from BGR to RGB
         cropped_image = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB)
         cropped_image = cv2.resize(cropped_image, target_size)
-        cropped_image = torch.tensor(cropped_image).permute(2, 0, 1).unsqueeze(0).float() / 255.0
+        cropped_image = torch.tensor(cropped_image).permute(2, 0, 1).float() / 255.0
         # [3, 224, 224]
 
         # save the cropped_image
