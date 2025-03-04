@@ -338,6 +338,15 @@ def crop_face(frame, landmarks, scale=1.0, image_size=224):
     return tform
 
 
+def process_single_video(video_info, frame_interval=1, batch_size=32, input_queues=None):
+    i, video_path = video_info
+    video_id = video_path.stem
+    queue_idx = i % len(input_queues)
+    video_processor(str(video_path), video_id, input_queues[queue_idx],
+                    frame_interval=frame_interval, batch_size=batch_size)
+    return f"Processed {video_id}"
+
+
 def main(video_dir: str, model_path: str, result_dir: str,
          num_workers: int = 8, gpu_ids: List[int] = [0],
          frame_interval: int = 1, batch_size: int = 32):
@@ -395,6 +404,9 @@ def main(video_dir: str, model_path: str, result_dir: str,
         cv2.imwrite("temp_cropped.jpg", save_image)
         5/0
 
+    print("stop here")
+    5/0
+
     # Find all video files
     video_files = []
     for ext in ['.mp4', '.avi', '.mov', '.mkv']:
@@ -440,14 +452,6 @@ def main(video_dir: str, model_path: str, result_dir: str,
     #Method1:
     from functools import partial
     num_video_workers = 8
-
-    def process_single_video(video_info, frame_interval=1, batch_size=32, input_queues=None):
-        i, video_path = video_info
-        video_id = video_path.stem
-        queue_idx = i % len(input_queues)
-        video_processor(str(video_path), video_id, input_queues[queue_idx],
-                        frame_interval=frame_interval, batch_size=batch_size)
-        return f"Processed {video_id}"
 
     process_func = partial(process_single_video,
                            frame_interval=frame_interval,
