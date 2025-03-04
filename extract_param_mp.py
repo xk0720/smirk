@@ -26,10 +26,10 @@ class FrameExtractor:
             target_size: Size to resize frames to (height, width)
         """
         self.frame_interval = frame_interval
-        self.input_size = 512
+        # self.input_size = 512
         self.target_size = target_size
 
-    def crop_face(self, frame, landmarks, scale=1.0, image_size=224):
+    def crop_face(self, frame, landmarks, scale: float = 1.0, image_size: Tuple[int, int] = (224, 224)):
         left = np.min(landmarks[:, 0])
         right = np.max(landmarks[:, 0])
         top = np.min(landmarks[:, 1])
@@ -44,7 +44,7 @@ class FrameExtractor:
         # crop image
         src_pts = np.array([[center[0] - size / 2, center[1] - size / 2], [center[0] - size / 2, center[1] + size / 2],
                             [center[0] + size / 2, center[1] - size / 2]])
-        DST_PTS = np.array([[0, 0], [0, image_size - 1], [image_size - 1, 0]])
+        DST_PTS = np.array([[0, 0], [0, image_size[0] - 1], [image_size[1] - 1, 0]])
         tform = estimate_transform('similarity', src_pts, DST_PTS)
 
         return tform
@@ -79,7 +79,7 @@ class FrameExtractor:
             #     # exit()
 
             kpt_mediapipe = kpt_mediapipe[..., :2]
-            tform = self.crop_face(frame, kpt_mediapipe, scale=1.2, image_size=self.input_size)
+            tform = self.crop_face(frame, kpt_mediapipe, scale=1.2, image_size=self.target_size)
 
             cropped_image = warp(frame, tform.inverse, output_shape=self.target_size, preserve_range=True).astype(
                 np.uint8)
@@ -365,52 +365,6 @@ def main(video_dir: str, model_path: str, result_dir: str,
     # if gpu_ids and not torch.cuda.is_available():
     #     print("CUDA not available, falling back to CPU")
     #     gpu_ids = []
-
-    # TODO debug:
-    video_path = "/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF/face_cropped/AdamKinzinger0.mp4"
-    cap = cv2.VideoCapture(video_path)
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    target_size = (224, 224)
-
-    # get height and width
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    print(f"height: {height}, width: {width}")
-
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        # if frame_count % self.frame_interval == 0:
-        kpt_mediapipe = run_mediapipe(frame)
-
-        # if kpt_mediapipe is None:
-        #     print('Could not find landmarks for the image using mediapipe and cannot crop the face. Exiting...')
-        #     # exit()
-
-        kpt_mediapipe = kpt_mediapipe[..., :2]
-        tform = crop_face(frame, kpt_mediapipe, scale=1.2, image_size=224)
-
-        cropped_image = warp(frame, tform.inverse, output_shape=target_size, preserve_range=True).astype(
-            np.uint8)
-        # cropped_kpt_mediapipe = np.dot(tform.params,
-        #                                np.hstack([kpt_mediapipe, np.ones([kpt_mediapipe.shape[0], 1])]).T).T
-        # cropped_kpt_mediapipe = cropped_kpt_mediapipe[:, :2]
-
-        # Convert from BGR to RGB
-        cropped_image = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB)
-        cropped_image = cv2.resize(cropped_image, target_size)
-        cropped_image = torch.tensor(cropped_image).permute(2, 0, 1).float() / 255.0
-        # [3, 224, 224]
-
-        # save the cropped_image
-        save_image = cropped_image.permute(1, 2, 0).numpy() * 255.0
-        cv2.imwrite("temp_cropped.jpg", save_image)
-        5/0
-
-    print("stop here")
-    5/0
 
     # Find all video files
     video_files = []
