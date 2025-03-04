@@ -317,6 +317,27 @@ def result_collector(output_queue: Queue, result_dir: str, expected_workers: int
         traceback.print_exc()
 
 
+def crop_face(frame, landmarks, scale=1.0, image_size=224):
+    left = np.min(landmarks[:, 0])
+    right = np.max(landmarks[:, 0])
+    top = np.min(landmarks[:, 1])
+    bottom = np.max(landmarks[:, 1])
+
+    h, w, _ = frame.shape
+    old_size = (right - left + bottom - top) / 2
+    center = np.array([right - (right - left) / 2.0, bottom - (bottom - top) / 2.0])
+
+    size = int(old_size * scale)
+
+    # crop image
+    src_pts = np.array([[center[0] - size / 2, center[1] - size / 2], [center[0] - size / 2, center[1] + size / 2],
+                        [center[0] + size / 2, center[1] - size / 2]])
+    DST_PTS = np.array([[0, 0], [0, image_size - 1], [image_size - 1, 0]])
+    tform = estimate_transform('similarity', src_pts, DST_PTS)
+
+    return tform
+
+
 def main(video_dir: str, model_path: str, result_dir: str,
          num_workers: int = 8, gpu_ids: List[int] = [0],
          frame_interval: int = 1, batch_size: int = 32):
@@ -336,22 +357,59 @@ def main(video_dir: str, model_path: str, result_dir: str,
     #     print("CUDA not available, falling back to CPU")
     #     gpu_ids = []
 
+    # TODO debug:
+    video_path = "/lustre/projects/Research_Project-T127204/xk219/datasets/HDTF/face_cropped/AdamKinzinger0.mp4"
+    cap = cv2.VideoCapture(video_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    target_size = (224, 224)
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        # if frame_count % self.frame_interval == 0:
+        kpt_mediapipe = run_mediapipe(frame)
+
+        # if kpt_mediapipe is None:
+        #     print('Could not find landmarks for the image using mediapipe and cannot crop the face. Exiting...')
+        #     # exit()
+
+        kpt_mediapipe = kpt_mediapipe[..., :2]
+        tform = crop_face(frame, kpt_mediapipe, scale=1.2, image_size=512)
+
+        cropped_image = warp(frame, tform.inverse, output_shape=target_size, preserve_range=True).astype(
+            np.uint8)
+        # cropped_kpt_mediapipe = np.dot(tform.params,
+        #                                np.hstack([kpt_mediapipe, np.ones([kpt_mediapipe.shape[0], 1])]).T).T
+        # cropped_kpt_mediapipe = cropped_kpt_mediapipe[:, :2]
+
+        # Convert from BGR to RGB
+        cropped_image = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB)
+        cropped_image = cv2.resize(cropped_image, target_size)
+        cropped_image = torch.tensor(cropped_image).permute(2, 0, 1).unsqueeze(0).float() / 255.0
+        # [3, 224, 224]
+
+        # save the cropped_image
+        save_image = cropped_image.permute(1, 2, 0).numpy() * 255.0
+        cv2.imwrite("temp_cropped.jpg", save_image)
+        5/0
+
     # Find all video files
     video_files = []
     for ext in ['.mp4', '.avi', '.mov', '.mkv']:
         video_files.extend(list(Path(video_dir).glob(f"*{ext}")))
-    print(f"video_files: {video_files}")
+    # print(f"video_files: {video_files}")
 
     if not video_files:
         print(f"No video files found in {video_dir}")
         return
 
-    for i, video_path in enumerate(video_files):
-        video_id = video_path.stem
-        print(f"video id: {video_id}")
+    # for i, video_path in enumerate(video_files):
+    #     video_id = video_path.stem
+    #     print(f"video id: {video_id}")
 
     print(f"Found {len(video_files)} video files")
-    5/0
 
     # Initialize queues
     input_queues = [Queue() for _ in range(num_workers)]
@@ -379,23 +437,43 @@ def main(video_dir: str, model_path: str, result_dir: str,
                                 args=(output_queue, result_dir, len(inference_processes)))
     collector_process.start()
 
-    # Start video processing workers
-    processing_processes = []
-    for i, video_path in enumerate(video_files):
-        video_id = video_path.stem
-        # Distribute videos across available inference workers
-        queue_idx = i % len(input_queues)
-        # TODO Potential problem? Each process consumes system resources (memory, file descriptors, process IDs).
-        #  If too many processes are created simultaneously, it could exhaust system resources.
-        p = Process(target=video_processor,
-                    args=(str(video_path), video_id, input_queues[queue_idx]),
-                    kwargs={'frame_interval': frame_interval, 'batch_size': batch_size})
-        p.start()
-        processing_processes.append(p)
+    #Method1:
+    from functools import partial
+    num_video_workers = 8
 
-    # Wait for video processing to complete
-    for p in processing_processes:
-        p.join()
+    def process_single_video(video_info, frame_interval=1, batch_size=32, input_queues=None):
+        i, video_path = video_info
+        video_id = video_path.stem
+        queue_idx = i % len(input_queues)
+        video_processor(str(video_path), video_id, input_queues[queue_idx],
+                        frame_interval=frame_interval, batch_size=batch_size)
+        return f"Processed {video_id}"
+
+    process_func = partial(process_single_video,
+                           frame_interval=frame_interval,
+                           batch_size=batch_size,
+                           input_queues=input_queues)
+
+    with mp.Pool(processes=num_video_workers) as pool:
+        video_infos = list(enumerate(video_files))
+        results = pool.map(process_func, video_infos)
+
+    # #Method 2: Start video processing workers
+    # processing_processes = []
+    # for i, video_path in enumerate(video_files):
+    #     video_id = video_path.stem
+    #     # Distribute videos across available inference workers
+    #     queue_idx = i % len(input_queues)
+    #     # TODO Potential problem? Each process consumes system resources (memory, file descriptors, process IDs).
+    #     #  If too many processes are created simultaneously, it could exhaust system resources.
+    #     p = Process(target=video_processor,
+    #                 args=(str(video_path), video_id, input_queues[queue_idx]),
+    #                 kwargs={'frame_interval': frame_interval, 'batch_size': batch_size})
+    #     p.start()
+    #     processing_processes.append(p)
+    # # Wait for video processing to complete
+    # for p in processing_processes:
+    #     p.join()
 
     # Signal inference workers to terminate
     for q in input_queues:
