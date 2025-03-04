@@ -367,7 +367,7 @@ def main(video_dir: str, model_path: str, result_dir: str,
     #     gpu_ids = []
 
     # TODO debug:
-    video_path = "/lustre/projects/Research_Project-T127204/xk219/datasets/HDTF/face_cropped/AdamKinzinger0.mp4"
+    video_path = "/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF/face_cropped/AdamKinzinger0.mp4"
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
     target_size = (224, 224)
