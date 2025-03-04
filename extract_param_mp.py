@@ -376,7 +376,6 @@ def main(video_dir: str, model_path: str, result_dir: str,
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     print(f"height: {height}, width: {width}")
-    5/0
 
     while cap.isOpened():
         ret, frame = cap.read()
