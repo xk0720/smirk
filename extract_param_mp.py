@@ -391,7 +391,7 @@ def main(video_dir: str, model_path: str, result_dir: str,
         #     # exit()
 
         kpt_mediapipe = kpt_mediapipe[..., :2]
-        tform = crop_face(frame, kpt_mediapipe, scale=1.2, image_size=512)
+        tform = crop_face(frame, kpt_mediapipe, scale=1.2, image_size=224)
 
         cropped_image = warp(frame, tform.inverse, output_shape=target_size, preserve_range=True).astype(
             np.uint8)
