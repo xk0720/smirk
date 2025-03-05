@@ -30,6 +30,7 @@ class FrameExtractor:
         self.target_size = target_size
 
     def crop_face(self, frame, landmarks, scale: float = 1.0, image_size: Tuple[int, int] = (224, 224)):
+        print("cropping face ...")
         left = np.min(landmarks[:, 0])
         right = np.max(landmarks[:, 0])
         top = np.min(landmarks[:, 1])
@@ -40,6 +41,7 @@ class FrameExtractor:
         center = np.array([right - (right - left) / 2.0, bottom - (bottom - top) / 2.0])
 
         size = int(old_size * scale)
+        print(f"old_size: {old_size}, size: {size}")
 
         # crop image
         src_pts = np.array([[center[0] - size / 2, center[1] - size / 2], [center[0] - size / 2, center[1] + size / 2],
