@@ -604,6 +604,21 @@ def download_face_models():
 if __name__ == "__main__":
     # download_face_models()
 
+    face_detector_model = "models/opencv_face_detector_uint8.pb"
+    face_detector_config = "models/opencv_face_detector.pbtxt"
+
+    # Check if models exist
+    if not os.path.exists(face_detector_model) or not os.path.exists(face_detector_config):
+        print(f"Warning: Face detector models not found at {face_detector_model}")
+        print("Please download the OpenCV DNN face detector models.")
+    else:
+        # Initialize the face detector
+        # face_net = cv2.dnn.readNetFromTensorflow(face_detector_model, face_detector_config)
+        face_net = cv2.dnn.readNet(face_detector_model, face_detector_config)
+
+    print(face_net)
+    5/0
+
     import argparse
 
     parser = argparse.ArgumentParser(description="Extract 3DMM parameters from videos")
