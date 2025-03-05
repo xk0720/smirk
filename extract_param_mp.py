@@ -177,7 +177,6 @@ class FrameExtractor:
             # frame = cv2.resize(frame, self.target_size[::-1])  # cv2 expects (width, height)
             # ========================================
 
-
             frames.append(cropped_image)
             frame_count += 1
 
@@ -282,7 +281,8 @@ class Model3DMM:
         return parameters
 
 
-def inference_worker(model_path: str, input_queue: Queue, output_queue: Queue, gpu_id: int = 0):
+def inference_worker(model_path: str, input_queue: Queue, output_queue: Queue, gpu_id: int = 0,
+                     result_dir: str = "/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF/param"):
     """Worker process that runs the 3DMM model on GPU.
 
     Args:
@@ -290,6 +290,7 @@ def inference_worker(model_path: str, input_queue: Queue, output_queue: Queue, g
         input_queue: Queue for receiving frames
         output_queue: Queue for sending results
         gpu_id: GPU device ID to use
+        result_dir: Directory to save results
     """
     try:
         # Set the device, default cuda:0
@@ -306,21 +307,27 @@ def inference_worker(model_path: str, input_queue: Queue, output_queue: Queue, g
             if data is None:
                 break
 
-            # #Method 1:
+            # #Method 1: =============================
             video_id, temp_file = data
             frames_batch = torch.load(temp_file)
-            print(f"frames_batch size: {frames_batch.size()}")
+            # print(f"frames_batch size: {frames_batch.size()}")
             # os.remove(temp_file)  # don't delete at the moment
-            print(f"got temp file: {temp_file} for video_id: {video_id}")
+            # print(f"got temp file: {temp_file} for video_id: {video_id}")
+            # =============================
 
-            # #Method 2:
+            # #Method 2: =============================
             # video_id, frames_batch = data
+            # =============================
 
             # Extract 3DMM parameters
             parameters = model.extract_parameters(frames_batch)
 
-            # TODO debug ...
-            output_queue.put((video_id,))
+            # save
+            output_path = os.path.join(result_dir, f"{video_id}.npy")
+            np.save(output_path, parameters)
+            print(f"Saved parameters for {video_id} to {output_path}")
+
+            # output_queue.put((video_id,))
             # output_queue.put((video_id, parameters))
 
     except Exception as e:
@@ -333,8 +340,10 @@ def inference_worker(model_path: str, input_queue: Queue, output_queue: Queue, g
         output_queue.put(None)
 
 
-def video_processor_worker(worker_id, video_paths, input_queue, frame_interval=1, batch_size=32,
-                           target_size: Tuple[int, int] = (224, 224)):
+def video_processor_worker(worker_id, video_paths, input_queue, frame_interval=1,
+                           batch_size=32, target_size: Tuple[int, int] = (224, 224),
+                           temp_file_dir: str = "/lustre/projects/Research_Project-T127204/xk219/projects/datasets"
+                                                "/HDTF/temp_tensors"):
     """Process a subset of videos and send frames to the inference queue"""
     detector = detectors.FAN()  # default 'FAN'
     print(f"detector loaded for worker {worker_id}")
@@ -357,8 +366,9 @@ def video_processor_worker(worker_id, video_paths, input_queue, frame_interval=1
 
                 # #Method 1: save tensor and put url into queue
                 batch_id = f"{video_id}_{i // batch_size}"
-                temp_file = (f"/lustre/projects/Research_Project-T127204/xk219/projects/ai_digital_humans_repo_summary/"
-                             f"develop/smirk/debug_tensors/{batch_id}.pt")
+                # temp_file = (f"/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF/"
+                #              f"temp_tensors/{batch_id}.pt")
+                temp_file = os.path.join(temp_file_dir, f"{batch_id}.pt")
                 torch.save(frames_batch, temp_file)
                 print(f"saved temp file: {temp_file} for batch_id: {batch_id}")
                 input_queue.put((batch_id, temp_file))
@@ -440,13 +450,13 @@ def result_collector(output_queue: Queue, result_dir: str, expected_workers: int
                 continue
 
             # #Method 1: don't save at the moment
-            print(f"got result: {result}")
+            # print(f"got result: {result}")
 
             # #Method 2: Save the parameters
-            # video_id, parameters = result
-            # output_path = os.path.join(result_dir, f"{video_id}.npy")
-            # np.save(output_path, **parameters)
-            # print(f"Saved parameters for {video_id} to {output_path}")
+            video_id, parameters = result
+            output_path = os.path.join(result_dir, f"{video_id}.npy")
+            np.save(output_path, **parameters)
+            print(f"Saved parameters for {video_id} to {output_path}")
 
     except Exception as e:
         print(f"Error in result collector: {e}")
@@ -464,7 +474,8 @@ def result_collector(output_queue: Queue, result_dir: str, expected_workers: int
 
 def main(video_dir: str, model_path: str, result_dir: str,
          num_workers: int = 8, gpu_ids: List[int] = [0],
-         frame_interval: int = 1, batch_size: int = 32):
+         frame_interval: int = 1, batch_size: int = 32,
+         temp_file_dir: str = "/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF/temp_tensors"):
     """Main function to extract 3DMM parameters from videos.
 
     Args:
@@ -504,11 +515,11 @@ def main(video_dir: str, model_path: str, result_dir: str,
 
     # Start inference workers (one per GPU, or one on CPU if no GPUs)
     inference_processes = []
-
+    gpu_id = 0
     for i in range(num_workers):
         # TODO multi-process share same GPU?
         p = Process(target=inference_worker,
-                    args=(model_path, input_queues[i], output_queue))
+                    args=(model_path, input_queues[i], output_queue, gpu_id, result_dir))
         p.start()
         inference_processes.append(p)
     print("inference processes started")
@@ -520,10 +531,10 @@ def main(video_dir: str, model_path: str, result_dir: str,
     #     inference_processes.append(p)
 
     # Start result collector
-    collector_process = Process(target=result_collector,
-                                args=(output_queue, result_dir, len(inference_processes)))
-    collector_process.start()
-    print("collecting process started")
+    # collector_process = Process(target=result_collector,
+    #                             args=(output_queue, result_dir, len(inference_processes)))
+    # collector_process.start()
+    # print("collecting process started")
 
     num_video_workers = num_workers
     #Method 1:
@@ -539,11 +550,13 @@ def main(video_dir: str, model_path: str, result_dir: str,
     print("video processing processes started")
     # Start video processing workers - one process per batch of videos
     processing_processes = []
+    target_size = (224, 224)
     for i, video_batch in enumerate(video_batches):
         # Each worker processes a batch of videos and sends frames to a specific queue
         queue_idx = i % len(input_queues)
         p = Process(target=video_processor_worker,
-                    args=(i, video_batch, input_queues[queue_idx], frame_interval, batch_size))
+                    args=(i, video_batch, input_queues[queue_idx], frame_interval,
+                          batch_size, target_size, temp_file_dir))
         p.start()
         processing_processes.append(p)
 
@@ -591,7 +604,7 @@ def main(video_dir: str, model_path: str, result_dir: str,
         p.join()
 
     # Wait for result collector to complete
-    collector_process.join()
+    # collector_process.join()
 
     print("All processing complete!")
 
@@ -643,6 +656,8 @@ if __name__ == "__main__":
     parser.add_argument("--video_dir", type=str,
                         default="/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF/face_cropped",
                         help="Directory containing video files")
+    parser.add_argument("--temp_file_dir", type=str,
+                        default="/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF/temp_tensors")
     parser.add_argument("--model_path", type=str,
                         default="./pretrained_models/SMIRK_em1.pt",
                         help="Path to the 3DMM model")
