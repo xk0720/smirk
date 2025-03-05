@@ -80,11 +80,11 @@ class FrameExtractor:
 
             if kpt_mediapipe is None:
                 print('Could not find landmarks for the image using mediapipe and cannot crop the face.')
-                # TODO here
             # exit()
 
             kpt_mediapipe = kpt_mediapipe[..., :2]
             tform = self.crop_face(frame, kpt_mediapipe, scale=1.2, image_size=self.target_size)
+            print("tform finished ...")
 
             cropped_image = warp(frame, tform.inverse, output_shape=self.target_size, preserve_range=True).astype(
                 np.uint8)
@@ -97,6 +97,7 @@ class FrameExtractor:
             cropped_image = cv2.resize(cropped_image, self.target_size)
             cropped_image = torch.tensor(cropped_image).permute(2, 0, 1).float() / 255.0
             # [3, 224, 224]
+            print("crop finished ...")
 
             # Resize frame
             # frame = cv2.resize(frame, self.target_size[::-1])  # cv2 expects (width, height)
