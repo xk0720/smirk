@@ -83,9 +83,6 @@ class FrameExtractor:
         if not os.path.exists(video_path):
             raise FileNotFoundError(f"Video file not found: {video_path}")
 
-        # detector = self.load_detector()
-        # print("detector loaded ...")
-
         cap = cv2.VideoCapture(video_path)
         num_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         fps = cap.get(cv2.CAP_PROP_FPS)
@@ -100,7 +97,6 @@ class FrameExtractor:
                 break
 
             print("run mediapipe and crop face ...")
-
             # #Method 1: ========================================
             image = frame
             h, w, _ = image.shape
@@ -129,9 +125,7 @@ class FrameExtractor:
 
             dst_image = warp(image, tform.inverse, output_shape=(self.target_size[0], self.target_size[1]))
             dst_image = dst_image.transpose(2, 0, 1)
-            print(f"dst_image shape: {dst_image.shape}")
-            cropped_image = dst_image
-            5/0
+            cropped_image = torch.tensor(dst_image).float()
 
             # #Method 2: ========================================
             # kpt_mediapipe = run_mediapipe(frame)
@@ -431,13 +425,13 @@ def result_collector(output_queue: Queue, result_dir: str, expected_workers: int
         traceback.print_exc()
 
 
-def process_single_video(video_info, frame_interval=1, batch_size=32, input_queues=None):
-    i, video_path = video_info
-    video_id = video_path.stem
-    queue_idx = i % len(input_queues)
-    video_processor(str(video_path), video_id, input_queues[queue_idx],
-                    frame_interval=frame_interval, batch_size=batch_size)
-    return f"Processed {video_id}"
+# def process_single_video(video_info, frame_interval=1, batch_size=32, input_queues=None):
+#     i, video_path = video_info
+#     video_id = video_path.stem
+#     queue_idx = i % len(input_queues)
+#     video_processor(str(video_path), video_id, input_queues[queue_idx],
+#                     frame_interval=frame_interval, batch_size=batch_size)
+#     return f"Processed {video_id}"
 
 
 def main(video_dir: str, model_path: str, result_dir: str,
