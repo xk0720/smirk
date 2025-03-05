@@ -62,6 +62,7 @@ class FrameExtractor:
             raise FileNotFoundError(f"Video file not found: {video_path}")
 
         cap = cv2.VideoCapture(video_path)
+        num_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         fps = cap.get(cv2.CAP_PROP_FPS)
         frames = []
         frame_count = 0
@@ -98,6 +99,7 @@ class FrameExtractor:
             frames.append(cropped_image)
 
             frame_count += 1
+            print(f"frame_count: {frame_count} / {num_frames}", end="\r")
 
         cap.release()
         return frames, fps
