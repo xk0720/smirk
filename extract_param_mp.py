@@ -318,8 +318,9 @@ def inference_worker(model_path: str, input_queue: Queue, output_queue: Queue, g
             # Extract 3DMM parameters
             parameters = model.extract_parameters(frames_batch)
 
-            # Put results in the output queue
-            output_queue.put((video_id, parameters))
+            # TODO debug ...
+            output_queue.put((video_id,))
+            # output_queue.put((video_id, parameters))
 
     except Exception as e:
         print(f"Error in inference worker: {e}")
@@ -424,9 +425,7 @@ def result_collector(output_queue: Queue, result_dir: str, expected_workers: int
 
         while workers_done < expected_workers:
             # Get result from the output queue
-            # result = output_queue.get()
-            result = output_queue.get(timeout=10)
-            print(f"got result: {result}")
+            result = output_queue.get()
 
             # Check for termination signal
             if result is None:
@@ -438,13 +437,14 @@ def result_collector(output_queue: Queue, result_dir: str, expected_workers: int
                 print(f"Error in worker: {result[1]}")
                 continue
 
-            video_id, parameters = result
+            # #Method 1: don't save at the moment
+            print(f"got result: {result}")
 
-            # Save the parameters
-            output_path = os.path.join(result_dir, f"{video_id}.npy")
-            np.save(output_path, **parameters)
-
-            print(f"Saved parameters for {video_id} to {output_path}")
+            # #Method 2: Save the parameters
+            # video_id, parameters = result
+            # output_path = os.path.join(result_dir, f"{video_id}.npy")
+            # np.save(output_path, **parameters)
+            # print(f"Saved parameters for {video_id} to {output_path}")
 
     except Exception as e:
         print(f"Error in result collector: {e}")
