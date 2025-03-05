@@ -19,25 +19,10 @@ from src import smirk_encoder
 from src.smirk_encoder import SmirkEncoder
 
 
-print("start loading detector ...")
-base_options = python.BaseOptions(model_asset_path='assets/face_landmarker.task')
-print(f"base_options: {base_options}")
-options = vision.FaceLandmarkerOptions(base_options=base_options,
-                                       output_face_blendshapes=True,
-                                       output_facial_transformation_matrixes=True,
-                                       num_faces=1,
-                                       min_face_detection_confidence=0.1,
-                                       min_face_presence_confidence=0.1
-                                       )
-print(f"options: {options}")
-detector = vision.FaceLandmarker.create_from_options(options)
-print(f"detector: {detector}")
-
-
 class FrameExtractor:
     """Extracts frames from videos and prepares them for the 3DMM model."""
 
-    def __init__(self, frame_interval: int = 1, target_size: Tuple[int, int] = (224, 224)):
+    def __init__(self, frame_interval: int = 1, target_size: Tuple[int, int] = (224, 224), detector=None):
         """
         Args:
             frame_interval: Extract every nth frame
@@ -46,7 +31,7 @@ class FrameExtractor:
         self.frame_interval = frame_interval
         # self.input_size = 512
         self.target_size = target_size
-        # self.detector = self.load_detector()
+        self.detector = detector
 
     def crop_face(self, frame, landmarks, scale: float = 1.0, image_size: Tuple[int, int] = (224, 224)):
         print("cropping face ...")
@@ -70,22 +55,6 @@ class FrameExtractor:
 
         return tform
 
-    # def load_detector(self):
-    #     print("start loading detector ...")
-    #     base_options = python.BaseOptions(model_asset_path='assets/face_landmarker.task')
-    #     print(f"base_options: {base_options}")
-    #     options = vision.FaceLandmarkerOptions(base_options=base_options,
-    #                                            output_face_blendshapes=True,
-    #                                            output_facial_transformation_matrixes=True,
-    #                                            num_faces=1,
-    #                                            min_face_detection_confidence=0.1,
-    #                                            min_face_presence_confidence=0.1
-    #                                            )
-    #     print(f"options: {options}")
-    #     detector = vision.FaceLandmarker.create_from_options(options)
-    #     print(f"detector: {detector}")
-    #     return detector
-
     def extract_frames(self, video_path: str) -> tuple[list[Tensor], float]:
         """Extract frames from a video file.
 
@@ -97,6 +66,9 @@ class FrameExtractor:
         """
         if not os.path.exists(video_path):
             raise FileNotFoundError(f"Video file not found: {video_path}")
+
+        # detector = self.load_detector()
+        # print("detector loaded ...")
 
         cap = cv2.VideoCapture(video_path)
         num_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -121,7 +93,7 @@ class FrameExtractor:
             image = frame
             image_numpy = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             image = mediapipe.Image(image_format=mediapipe.ImageFormat.SRGB, data=image_numpy)
-            detection_result = detector.detect(image)
+            detection_result = self.detector.detect(image)
 
             if len(detection_result.face_landmarks) == 0:
                 print(f"No face detected at frame {frame_count}")
@@ -307,7 +279,10 @@ def inference_worker(model_path: str, input_queue: Queue, output_queue: Queue, g
 def video_processor_worker(worker_id, video_paths, input_queue, frame_interval=1, batch_size=32,
                            target_size: Tuple[int, int] = (224, 224)):
     """Process a subset of videos and send frames to the inference queue"""
-    extractor = FrameExtractor(frame_interval, target_size)
+    detector = load_detector()
+    print(f"detector loaded for worker {worker_id}")
+
+    extractor = FrameExtractor(frame_interval, target_size, detector)
     print(f"extractor loaded for worker {worker_id}")
 
     for video_path in video_paths:
@@ -550,6 +525,23 @@ def main(video_dir: str, model_path: str, result_dir: str,
     collector_process.join()
 
     print("All processing complete!")
+
+
+def load_detector():
+    print("start loading detector ...")
+    base_options = python.BaseOptions(model_asset_path='assets/face_landmarker.task')
+    print(f"base_options: {base_options}")
+    options = vision.FaceLandmarkerOptions(base_options=base_options,
+                                           output_face_blendshapes=True,
+                                           output_facial_transformation_matrixes=True,
+                                           num_faces=1,
+                                           min_face_detection_confidence=0.1,
+                                           min_face_presence_confidence=0.1
+                                           )
+    print(f"options: {options}")
+    detector = vision.FaceLandmarker.create_from_options(options)
+    print(f"detector: {detector}")
+    return detector
 
 
 if __name__ == "__main__":
