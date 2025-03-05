@@ -75,11 +75,13 @@ class FrameExtractor:
                 break
 
             # if frame_count % self.frame_interval == 0:
+            print("run mediapipe and crop face ...")
             kpt_mediapipe = run_mediapipe(frame)
 
-            # if kpt_mediapipe is None:
-            #     print('Could not find landmarks for the image using mediapipe and cannot crop the face. Exiting...')
-            #     # exit()
+            if kpt_mediapipe is None:
+                print('Could not find landmarks for the image using mediapipe and cannot crop the face.')
+                # TODO here
+            # exit()
 
             kpt_mediapipe = kpt_mediapipe[..., :2]
             tform = self.crop_face(frame, kpt_mediapipe, scale=1.2, image_size=self.target_size)
