@@ -299,8 +299,6 @@ def inference_worker(model_path: str, input_queue: Queue, output_queue: Queue, g
         # print(f"Inference worker started on {device}")
 
         while True:
-
-
             # Get data from the input queue
             data = input_queue.get()
 
@@ -310,6 +308,7 @@ def inference_worker(model_path: str, input_queue: Queue, output_queue: Queue, g
 
             # #Method 1:
             video_id, temp_file = data
+            print(f"got temp file: {temp_file} for video_id: {video_id}")
             frames_batch = torch.load(temp_file)
             os.remove(temp_file)
 
@@ -352,12 +351,13 @@ def video_processor_worker(worker_id, video_paths, input_queue, frame_interval=1
             for i in range(0, len(frames), batch_size):
                 batch_frames = frames[i:i + batch_size]
                 frames_batch = extractor.preprocess_frames(batch_frames)
-                print("putting batch in queue")
+                # print("putting batch in queue")
 
                 # #Method 1: save tensor and put url into queue
                 batch_id = f"{video_id}_{i // batch_size}"
                 temp_file = f"/tmp/{batch_id}.pt"
                 torch.save(frames_batch, temp_file)
+                print(f"saved temp file: {temp_file} for batch_id: {batch_id}")
                 input_queue.put((batch_id, temp_file))
 
                 # #Method 2: put tensor into queue
