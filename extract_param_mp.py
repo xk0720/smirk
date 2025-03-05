@@ -365,9 +365,10 @@ def video_processor_worker(worker_id, video_paths, input_queue, frame_interval=1
                 # print("putting batch in queue")
 
                 # #Method 1: save tensor and put url into queue
-                batch_id = f"{video_id}_{i // batch_size}"
-                # temp_file = (f"/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF/"
-                #              f"temp_tensors/{batch_id}.pt")
+                batch_number = i // batch_size
+                batch_id = f"{video_id}_{batch_number:06d}"  # Zero-padding to 6 digits
+                # batch_id = f"{video_id}_{i // batch_size}"
+
                 temp_file = os.path.join(temp_file_dir, f"{batch_id}.pt")
                 torch.save(frames_batch, temp_file)
                 print(f"saved temp file: {temp_file} for batch_id: {batch_id}")
