@@ -6,7 +6,7 @@
 #SBATCH --nodes=1  # specify number of nodes
 #SBATCH --ntasks-per-node=1  # specify the number of tasks per node
 #SBATCH --gres=gpu:1
-#SBATCH --cpus-per-task=12  # cpus per task
+#SBATCH --cpus-per-task=24  # cpus per task
 #SBATCH --mem-per-cpu=8G  # GB memory requested per cpu-core
 #SBATCH --output=extract_param.out  # submit script's standard-out
 #SBATCH --error=extract_param.err  # submit script's standard-error
