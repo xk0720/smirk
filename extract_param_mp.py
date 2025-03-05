@@ -538,6 +538,22 @@ def main(video_dir: str, model_path: str, result_dir: str,
 
 
 if __name__ == "__main__":
+
+    print("start loading detector ...")
+    base_options = python.BaseOptions(model_asset_path='assets/face_landmarker.task')
+    print(f"base_options: {base_options}")
+    options = vision.FaceLandmarkerOptions(base_options=base_options,
+                                           output_face_blendshapes=True,
+                                           output_facial_transformation_matrixes=True,
+                                           num_faces=1,
+                                           min_face_detection_confidence=0.1,
+                                           min_face_presence_confidence=0.1
+                                           )
+    print(f"options: {options}")
+    detector = vision.FaceLandmarker.create_from_options(options)
+    print(f"detector: {detector}")
+    5/0
+
     import argparse
 
     parser = argparse.ArgumentParser(description="Extract 3DMM parameters from videos")
