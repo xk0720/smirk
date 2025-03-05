@@ -649,6 +649,11 @@ def load_detector():
 
 
 if __name__ == "__main__":
+    path = "/lustre/projects/Research_Project-T127204/xk219/projects/ai_digital_humans_repo_summary/develop/smirk/test_data/param"
+    data = np.load(os.path.join(path, "001_cropped_000000.npy"), allow_pickle=True)
+    print(f"shape of data: {data.shape}")
+    5/0
+
     mp.set_start_method('spawn', force=True)
     import argparse
 
