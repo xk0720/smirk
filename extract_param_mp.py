@@ -358,7 +358,7 @@ def video_processor_worker(worker_id, video_paths, input_queue, frame_interval=1
                 # #Method 1: save tensor and put url into queue
                 batch_id = f"{video_id}_{i // batch_size}"
                 temp_file = (f"/lustre/projects/Research_Project-T127204/xk219/projects/ai_digital_humans_repo_summary/"
-                             f"develop/smirk/tmp/{batch_id}.pt")
+                             f"develop/smirk/debug_tensors/{batch_id}.pt")
                 torch.save(frames_batch, temp_file)
                 print(f"saved temp file: {temp_file} for batch_id: {batch_id}")
                 input_queue.put((batch_id, temp_file))
