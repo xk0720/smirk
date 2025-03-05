@@ -586,14 +586,14 @@ def download_face_models():
     if not os.path.exists(face_detect_model):
         print("Downloading face detection model...")
         urllib.request.urlretrieve(
-            "https://github.com/opencv/opencv_3rdparty/raw/dnn_samples_face_detector_20170830/opencv_face_detector_uint8.pb",
+            "https://github.com/ac005sheekar/Gender-Age-Detection-with-OpenCV-and-Keras/tree/master/opencv_face_detector_uint8.pb",
             face_detect_model
         )
 
     if not os.path.exists(face_detect_config):
         print("Downloading face detection model config...")
         urllib.request.urlretrieve(
-            "https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/opencv_face_detector.pbtxt",
+            "https://github.com/ac005sheekar/Gender-Age-Detection-with-OpenCV-and-Keras/tree/master/opencv_face_detector.pbtxt",
             face_detect_config
         )
 
@@ -601,7 +601,6 @@ def download_face_models():
 
 
 if __name__ == "__main__":
-    print(f"Downloading face models...")
     download_face_models()
     5/0
 
