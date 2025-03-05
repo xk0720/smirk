@@ -648,8 +648,11 @@ def load_detector():
 
 
 if __name__ == "__main__":
-    mp.set_start_method('spawn', force=True)
+    a = torch.randn(1, 3, 224, 224)
+    torch.save(a, "./tmp/tensor.pt")
+    5/0
 
+    mp.set_start_method('spawn', force=True)
     import argparse
 
     parser = argparse.ArgumentParser(description="Extract 3DMM parameters from videos")
