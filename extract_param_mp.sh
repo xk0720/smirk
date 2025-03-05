@@ -15,6 +15,6 @@
 source ~/.bashrc
 conda activate interactive_head
 
-cd /lustre/projects/Research_Project-T127204/xk219/projects/ai_digital_humans_repo_summary/smirk
+cd /lustre/projects/Research_Project-T127204/xk219/projects/ai_digital_humans_repo_summary/develop/smirk
 
 srun python extract_param_mp.py
