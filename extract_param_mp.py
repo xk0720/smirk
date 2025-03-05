@@ -308,9 +308,9 @@ def inference_worker(model_path: str, input_queue: Queue, output_queue: Queue, g
 
             # #Method 1:
             video_id, temp_file = data
-            print(f"got temp file: {temp_file} for video_id: {video_id}")
             frames_batch = torch.load(temp_file)
-            os.remove(temp_file)
+            # os.remove(temp_file)  # don't delete at the moment
+            print(f"got temp file: {temp_file} for video_id: {video_id}")
 
             # #Method 2:
             # video_id, frames_batch = data
@@ -424,7 +424,9 @@ def result_collector(output_queue: Queue, result_dir: str, expected_workers: int
 
         while workers_done < expected_workers:
             # Get result from the output queue
-            result = output_queue.get()
+            # result = output_queue.get()
+            result = output_queue.get(timeout=10)
+            print(f"got result: {result}")
 
             # Check for termination signal
             if result is None:
