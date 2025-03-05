@@ -243,6 +243,7 @@ def video_processor_worker(worker_id, video_paths, input_queue, frame_interval=1
                            target_size: Tuple[int, int] = (224, 224)):
     """Process a subset of videos and send frames to the inference queue"""
     extractor = FrameExtractor(frame_interval, target_size)
+    print(f"extractor loaded for worker {worker_id}")
 
     for video_path in video_paths:
         video_id = video_path.stem
@@ -255,6 +256,7 @@ def video_processor_worker(worker_id, video_paths, input_queue, frame_interval=1
             for i in range(0, len(frames), batch_size):
                 batch_frames = frames[i:i + batch_size]
                 frames_batch = extractor.preprocess_frames(batch_frames)
+                print("putting batch in queue")
                 input_queue.put((f"{video_id}_{i // batch_size}", frames_batch))
         except Exception as e:
             print(f"Error processing video {video_path}: {e}")
@@ -423,6 +425,9 @@ def main(video_dir: str, model_path: str, result_dir: str,
         start_idx = i * bs
         end_idx = start_idx + bs if i < num_video_workers - 1 else len(video_files)
         video_batches.append(video_files[start_idx:end_idx])
+    print(f"video_batches size: {len(video_batches)}")
+
+    print("video processing processes started")
     # Start video processing workers - one process per batch of videos
     processing_processes = []
     for i, video_batch in enumerate(video_batches):
@@ -432,7 +437,8 @@ def main(video_dir: str, model_path: str, result_dir: str,
                     args=(i, video_batch, input_queues[queue_idx], frame_interval, batch_size))
         p.start()
         processing_processes.append(p)
-    print("video processing processes started")
+
+    # TODO didn't reach this step
 
     # Wait for video processing to complete
     for p in processing_processes:
@@ -495,7 +501,7 @@ if __name__ == "__main__":
     parser.add_argument("--result_dir", type=str,
                         default="/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF/param",
                         help="Directory to save results to")
-    parser.add_argument("--num_workers", type=int, default=4, help="Number of video processing workers")
+    parser.add_argument("--num_workers", type=int, default=8, help="Number of video processing workers")
     parser.add_argument("--gpu_ids", type=int, nargs="+", default=[0], help="GPU IDs to use")
     parser.add_argument("--frame_interval", type=int, default=1, help="Extract every nth frame")
     parser.add_argument("--batch_size", type=int, default=64, help="Number of frames to process at once")
