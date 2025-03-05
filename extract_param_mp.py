@@ -309,6 +309,7 @@ def inference_worker(model_path: str, input_queue: Queue, output_queue: Queue, g
             # #Method 1:
             video_id, temp_file = data
             frames_batch = torch.load(temp_file)
+            print(f"frames_batch size: {frames_batch.size()}")
             # os.remove(temp_file)  # don't delete at the moment
             print(f"got temp file: {temp_file} for video_id: {video_id}")
 
