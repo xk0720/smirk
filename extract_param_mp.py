@@ -7,6 +7,9 @@ from numpy import ndarray
 from torch import Tensor
 from torch.multiprocessing import Queue, Process
 import time
+import mediapipe
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
 from pathlib import Path
 from typing import List, Dict, Tuple, Optional
 import traceback
@@ -28,6 +31,7 @@ class FrameExtractor:
         self.frame_interval = frame_interval
         # self.input_size = 512
         self.target_size = target_size
+        self.detector = self.load_detector()
 
     def crop_face(self, frame, landmarks, scale: float = 1.0, image_size: Tuple[int, int] = (224, 224)):
         print("cropping face ...")
@@ -50,6 +54,18 @@ class FrameExtractor:
         tform = estimate_transform('similarity', src_pts, DST_PTS)
 
         return tform
+
+    def load_detector(self):
+        base_options = python.BaseOptions(model_asset_path='assets/face_landmarker.task')
+        options = vision.FaceLandmarkerOptions(base_options=base_options,
+                                               output_face_blendshapes=True,
+                                               output_facial_transformation_matrixes=True,
+                                               num_faces=1,
+                                               min_face_detection_confidence=0.1,
+                                               min_face_presence_confidence=0.1
+                                               )
+        detector = vision.FaceLandmarker.create_from_options(options)
+        return detector
 
     def extract_frames(self, video_path: str) -> tuple[list[Tensor], float]:
         """Extract frames from a video file.
@@ -76,9 +92,27 @@ class FrameExtractor:
             if not ret:
                 break
 
-            # if frame_count % self.frame_interval == 0:
             print("run mediapipe and crop face ...")
-            kpt_mediapipe = run_mediapipe(frame)
+
+            # #Method 1:
+            # kpt_mediapipe = run_mediapipe(frame)
+
+            # #Method 2:
+            image = frame
+            image_numpy = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            image = mediapipe.Image(image_format=mediapipe.ImageFormat.SRGB, data=image_numpy)
+            detection_result = self.detector.detect(image)
+
+            if len(detection_result.face_landmarks) == 0:
+                print(f"No face detected at frame {frame_count}")
+                # return None
+
+            face_landmarks = detection_result.face_landmarks[0]
+            face_landmarks_numpy = np.zeros((478, 3))
+
+            for i, landmark in enumerate(face_landmarks):
+                face_landmarks_numpy[i] = [landmark.x * image.width, landmark.y * image.height, landmark.z]
+            kpt_mediapipe = face_landmarks_numpy
             print("run mediapipe finished ...")
 
             if kpt_mediapipe is None:
