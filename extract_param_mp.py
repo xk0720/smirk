@@ -64,6 +64,8 @@ class FrameExtractor:
         cap = cv2.VideoCapture(video_path)
         num_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         fps = cap.get(cv2.CAP_PROP_FPS)
+        print(f"video_path: {video_path}, num_frames: {num_frames}, fps: {fps}")
+
         frames = []
         frame_count = 0
 
