@@ -96,7 +96,6 @@ class FrameExtractor:
             if not ret:
                 break
 
-            print("run mediapipe and crop face ...")
             # #Method 1: ========================================
             image = frame
             h, w, _ = image.shape
@@ -175,7 +174,7 @@ class FrameExtractor:
             frames.append(cropped_image)
 
             frame_count += 1
-            print(f"frame_count: {frame_count} / {num_frames}", end="\r")
+            print(f"frame_count: {frame_count} / {num_frames}")
 
         cap.release()
         return frames, fps
