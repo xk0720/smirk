@@ -42,7 +42,8 @@ class FrameExtractor:
             print("Please download the OpenCV DNN face detector models.")
         else:
             # Initialize the face detector
-            self.face_net = cv2.dnn.readNetFromTensorflow(self.face_detector_model, self.face_detector_config)
+            # self.face_net = cv2.dnn.readNetFromTensorflow(self.face_detector_model, self.face_detector_config)
+            self.face_net = cv2.dnn.readNet(self.face_detector_model, self.face_detector_config)
         return self.face_net
 
     def crop_face(self, frame, landmarks, scale: float = 1.0, image_size: Tuple[int, int] = (224, 224)):
