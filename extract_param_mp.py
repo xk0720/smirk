@@ -528,20 +528,56 @@ def main(video_dir: str, model_path: str, result_dir: str,
 
 
 def load_detector():
+    # print("start loading detector ...")
+    # base_options = python.BaseOptions(model_asset_path='assets/face_landmarker.task')
+    # print(f"base_options: {base_options}")
+    # options = vision.FaceLandmarkerOptions(base_options=base_options,
+    #                                        output_face_blendshapes=True,
+    #                                        output_facial_transformation_matrixes=True,
+    #                                        num_faces=1,
+    #                                        min_face_detection_confidence=0.1,
+    #                                        min_face_presence_confidence=0.1
+    #                                        )
+    # print(f"options: {options}")
+    # detector = vision.FaceLandmarker.create_from_options(options)
+    # print(f"detector: {detector}")
+    # return detector
+
     print("start loading detector ...")
-    base_options = python.BaseOptions(model_asset_path='assets/face_landmarker.task')
-    print(f"base_options: {base_options}")
-    options = vision.FaceLandmarkerOptions(base_options=base_options,
-                                           output_face_blendshapes=True,
-                                           output_facial_transformation_matrixes=True,
-                                           num_faces=1,
-                                           min_face_detection_confidence=0.1,
-                                           min_face_presence_confidence=0.1
-                                           )
-    print(f"options: {options}")
-    detector = vision.FaceLandmarker.create_from_options(options)
-    print(f"detector: {detector}")
-    return detector
+    try:
+        # Try with default settings (might use GPU)
+        base_options = python.BaseOptions(model_asset_path='assets/face_landmarker.task')
+        options = vision.FaceLandmarkerOptions(
+            base_options=base_options,
+            output_face_blendshapes=True,
+            output_facial_transformation_matrixes=True,
+            num_faces=1,
+            min_face_detection_confidence=0.1,
+            min_face_presence_confidence=0.1
+        )
+        detector = vision.FaceLandmarker.create_from_options(options)
+        print("Detector initialized successfully")
+        return detector
+    except Exception as e:
+        print(f"Error initializing detector with default settings: {e}")
+        print("Falling back to CPU-only mode...")
+
+        # Try again with CPU delegate
+        base_options = python.BaseOptions(
+            model_asset_path='assets/face_landmarker.task',
+            delegate="CPU"
+        )
+        options = vision.FaceLandmarkerOptions(
+            base_options=base_options,
+            output_face_blendshapes=True,
+            output_facial_transformation_matrixes=True,
+            num_faces=1,
+            min_face_detection_confidence=0.1,
+            min_face_presence_confidence=0.1
+        )
+        detector = vision.FaceLandmarker.create_from_options(options)
+        print("Detector initialized in CPU-only mode")
+        return detector
 
 
 if __name__ == "__main__":
