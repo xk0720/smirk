@@ -614,6 +614,8 @@ def load_detector():
 
 
 if __name__ == "__main__":
+    mp.set_start_method('spawn', force=True)
+
     import argparse
 
     parser = argparse.ArgumentParser(description="Extract 3DMM parameters from videos")
