@@ -57,6 +57,7 @@ class FrameExtractor:
 
     def load_detector(self):
         base_options = python.BaseOptions(model_asset_path='assets/face_landmarker.task')
+        print(f"base_options: {base_options}")
         options = vision.FaceLandmarkerOptions(base_options=base_options,
                                                output_face_blendshapes=True,
                                                output_facial_transformation_matrixes=True,
@@ -94,6 +95,7 @@ class FrameExtractor:
 
             print("run mediapipe and crop face ...")
 
+            # ========================================
             # #Method 1:
             # kpt_mediapipe = run_mediapipe(frame)
 
@@ -114,6 +116,7 @@ class FrameExtractor:
                 face_landmarks_numpy[i] = [landmark.x * image.width, landmark.y * image.height, landmark.z]
             kpt_mediapipe = face_landmarks_numpy
             print("run mediapipe finished ...")
+            # ========================================
 
             if kpt_mediapipe is None:
                 print('Could not find landmarks for the image using mediapipe and cannot crop the face.')
