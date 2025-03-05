@@ -601,8 +601,7 @@ def download_face_models():
 
 
 if __name__ == "__main__":
-    download_face_models()
-    5/0
+    # download_face_models()
 
     import argparse
 
