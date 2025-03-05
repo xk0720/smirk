@@ -17,12 +17,14 @@ from skimage.transform import estimate_transform, warp
 from utils.mediapipe_utils import run_mediapipe
 from src import smirk_encoder
 from src.smirk_encoder import SmirkEncoder
+import detectors
 
 
 class FrameExtractor:
     """Extracts frames from videos and prepares them for the 3DMM model."""
 
-    def __init__(self, frame_interval: int = 1, target_size: Tuple[int, int] = (224, 224), detector=None):
+    def __init__(self, frame_interval: int = 1, target_size: Tuple[int, int] = (224, 224),
+                 detector = None, scale: float = 1.25):
         """
         Args:
             frame_interval: Extract every nth frame
@@ -31,7 +33,21 @@ class FrameExtractor:
         self.frame_interval = frame_interval
         # self.input_size = 512
         self.target_size = target_size
-        self.detector = detector
+        self.scale = scale
+        self.face_detector = detector
+
+    def bbox2point(self, left, right, top, bottom, type='bbox'):
+        ''' bbox from detector and landmarks are different
+        '''
+        if type=='kpt68':
+            old_size = (right - left + bottom - top)/2*1.1
+            center = np.array([right - (right - left) / 2.0, bottom - (bottom - top) / 2.0 ])
+        elif type=='bbox':
+            old_size = (right - left + bottom - top)/2
+            center = np.array([right - (right - left) / 2.0, bottom - (bottom - top) / 2.0  + old_size*0.12])
+        else:
+            raise NotImplementedError
+        return old_size, center
 
     def crop_face(self, frame, landmarks, scale: float = 1.0, image_size: Tuple[int, int] = (224, 224)):
         print("cropping face ...")
@@ -85,49 +101,80 @@ class FrameExtractor:
 
             print("run mediapipe and crop face ...")
 
-            # ========================================
-            # #Method 1:
+            # #Method 1: ========================================
+            image = frame
+            h, w, _ = image.shape
+            bbox, bbox_type = self.face_detector.run(image)
+            if len(bbox) < 4:
+                print('no face detected! run original frame')
+                left = 0;
+                right = h - 1;
+                top = 0;
+                bottom = w - 1
+            else:
+                left = bbox[0];
+                right = bbox[2]
+                top = bbox[1];
+                bottom = bbox[3]
+            old_size, center = self.bbox2point(left, right, top, bottom, type=bbox_type)
+
+            size = int(old_size * self.scale)
+            src_pts = np.array([[center[0] - size / 2, center[1] - size / 2], [center[0] - size / 2, center[1] + size / 2],
+                                [center[0] + size / 2, center[1] - size / 2]])
+
+            DST_PTS = np.array([[0, 0], [0, self.target_size[0] - 1], [self.target_size[1] - 1, 0]])
+            tform = estimate_transform('similarity', src_pts, DST_PTS)
+
+            image = image / 255.
+
+            dst_image = warp(image, tform.inverse, output_shape=(self.target_size[0], self.target_size[1]))
+            dst_image = dst_image.transpose(2, 0, 1)
+            print(f"dst_image shape: {dst_image.shape}")
+            cropped_image = dst_image
+            5/0
+
+            # #Method 2: ========================================
             # kpt_mediapipe = run_mediapipe(frame)
 
-            # #Method 2:
-            image = frame
-            image_numpy = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            image = mediapipe.Image(image_format=mediapipe.ImageFormat.SRGB, data=image_numpy)
-            detection_result = self.detector.detect(image)
+            # #Method 3: ========================================
+            # image = frame
+            # image_numpy = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            # image = mediapipe.Image(image_format=mediapipe.ImageFormat.SRGB, data=image_numpy)
+            # detection_result = self.detector.detect(image)
+            #
+            # if len(detection_result.face_landmarks) == 0:
+            #     print(f"No face detected at frame {frame_count}")
+            #     # return None
+            #
+            # face_landmarks = detection_result.face_landmarks[0]
+            # face_landmarks_numpy = np.zeros((478, 3))
+            #
+            # for i, landmark in enumerate(face_landmarks):
+            #     face_landmarks_numpy[i] = [landmark.x * image.width, landmark.y * image.height, landmark.z]
+            # kpt_mediapipe = face_landmarks_numpy
+            # print("run mediapipe finished ...")
 
-            if len(detection_result.face_landmarks) == 0:
-                print(f"No face detected at frame {frame_count}")
-                # return None
-
-            face_landmarks = detection_result.face_landmarks[0]
-            face_landmarks_numpy = np.zeros((478, 3))
-
-            for i, landmark in enumerate(face_landmarks):
-                face_landmarks_numpy[i] = [landmark.x * image.width, landmark.y * image.height, landmark.z]
-            kpt_mediapipe = face_landmarks_numpy
-            print("run mediapipe finished ...")
+            # if kpt_mediapipe is None:
+            #     print('Could not find landmarks for the image using mediapipe and cannot crop the face.')
+            # # exit()
+            #
+            # kpt_mediapipe = kpt_mediapipe[..., :2]
+            # tform = self.crop_face(frame, kpt_mediapipe, scale=1.2, image_size=self.target_size)
+            # print("tform finished ...")
+            #
+            # cropped_image = warp(frame, tform.inverse, output_shape=self.target_size, preserve_range=True).astype(
+            #     np.uint8)
+            # # cropped_kpt_mediapipe = np.dot(tform.params,
+            # #                                np.hstack([kpt_mediapipe, np.ones([kpt_mediapipe.shape[0], 1])]).T).T
+            # # cropped_kpt_mediapipe = cropped_kpt_mediapipe[:, :2]
+            #
+            # # Convert from BGR to RGB
+            # cropped_image = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB)
+            # cropped_image = cv2.resize(cropped_image, self.target_size)
+            # cropped_image = torch.tensor(cropped_image).permute(2, 0, 1).float() / 255.0
+            # # [3, 224, 224]
+            # print("crop finished ...")
             # ========================================
-
-            if kpt_mediapipe is None:
-                print('Could not find landmarks for the image using mediapipe and cannot crop the face.')
-            # exit()
-
-            kpt_mediapipe = kpt_mediapipe[..., :2]
-            tform = self.crop_face(frame, kpt_mediapipe, scale=1.2, image_size=self.target_size)
-            print("tform finished ...")
-
-            cropped_image = warp(frame, tform.inverse, output_shape=self.target_size, preserve_range=True).astype(
-                np.uint8)
-            # cropped_kpt_mediapipe = np.dot(tform.params,
-            #                                np.hstack([kpt_mediapipe, np.ones([kpt_mediapipe.shape[0], 1])]).T).T
-            # cropped_kpt_mediapipe = cropped_kpt_mediapipe[:, :2]
-
-            # Convert from BGR to RGB
-            cropped_image = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB)
-            cropped_image = cv2.resize(cropped_image, self.target_size)
-            cropped_image = torch.tensor(cropped_image).permute(2, 0, 1).float() / 255.0
-            # [3, 224, 224]
-            print("crop finished ...")
 
             # Resize frame
             # frame = cv2.resize(frame, self.target_size[::-1])  # cv2 expects (width, height)
@@ -279,7 +326,7 @@ def inference_worker(model_path: str, input_queue: Queue, output_queue: Queue, g
 def video_processor_worker(worker_id, video_paths, input_queue, frame_interval=1, batch_size=32,
                            target_size: Tuple[int, int] = (224, 224)):
     """Process a subset of videos and send frames to the inference queue"""
-    detector = load_detector()
+    detector = detectors.FAN()  # default 'FAN'
     print(f"detector loaded for worker {worker_id}")
 
     extractor = FrameExtractor(frame_interval, target_size, detector)
@@ -306,41 +353,41 @@ def video_processor_worker(worker_id, video_paths, input_queue, frame_interval=1
     return f"Worker {worker_id} completed processing {len(video_paths)} videos"
 
 
-def video_processor(video_path: str, video_id: str, input_queue: Queue,
-                    frame_interval: int = 1, target_size: Tuple[int, int] = (224, 224),
-                    batch_size: int = 32):
-    """Process a video and extract frames for 3DMM parameter extraction.
-
-    Args:
-        video_path: Path to the video file
-        video_id: Identifier for the video
-        input_queue: Queue for sending frames to the inference worker
-        frame_interval: Extract every nth frame
-        target_size: Size to resize frames to
-        batch_size: Number of frames to process at once
-    """
-    try:
-        # Create a frame extractor
-        extractor = FrameExtractor(frame_interval, target_size)
-
-        # Extract frames
-        frames, fps = extractor.extract_frames(video_path)
-
-        print(f"Extracted {len(frames)} frames from {video_path}")
-
-        # Process frames in batches
-        for i in range(0, len(frames), batch_size):
-            batch_frames = frames[i:i + batch_size]  # maintain the remainder
-
-            # Preprocess frames
-            frames_batch = extractor.preprocess_frames(batch_frames)
-
-            # Put batch in the input queue
-            input_queue.put((f"{video_id}_{i // batch_size}", frames_batch))
-
-    except Exception as e:
-        print(f"Error processing video {video_path}: {e}")
-        traceback.print_exc()
+# def video_processor(video_path: str, video_id: str, input_queue: Queue,
+#                     frame_interval: int = 1, target_size: Tuple[int, int] = (224, 224),
+#                     batch_size: int = 32):
+#     """Process a video and extract frames for 3DMM parameter extraction.
+#
+#     Args:
+#         video_path: Path to the video file
+#         video_id: Identifier for the video
+#         input_queue: Queue for sending frames to the inference worker
+#         frame_interval: Extract every nth frame
+#         target_size: Size to resize frames to
+#         batch_size: Number of frames to process at once
+#     """
+#     try:
+#         # Create a frame extractor
+#         extractor = FrameExtractor(frame_interval, target_size)
+#
+#         # Extract frames
+#         frames, fps = extractor.extract_frames(video_path)
+#
+#         print(f"Extracted {len(frames)} frames from {video_path}")
+#
+#         # Process frames in batches
+#         for i in range(0, len(frames), batch_size):
+#             batch_frames = frames[i:i + batch_size]  # maintain the remainder
+#
+#             # Preprocess frames
+#             frames_batch = extractor.preprocess_frames(batch_frames)
+#
+#             # Put batch in the input queue
+#             input_queue.put((f"{video_id}_{i // batch_size}", frames_batch))
+#
+#     except Exception as e:
+#         print(f"Error processing video {video_path}: {e}")
+#         traceback.print_exc()
 
 
 def result_collector(output_queue: Queue, result_dir: str, expected_workers: int):
@@ -528,21 +575,6 @@ def main(video_dir: str, model_path: str, result_dir: str,
 
 
 def load_detector():
-    # print("start loading detector ...")
-    # base_options = python.BaseOptions(model_asset_path='assets/face_landmarker.task')
-    # print(f"base_options: {base_options}")
-    # options = vision.FaceLandmarkerOptions(base_options=base_options,
-    #                                        output_face_blendshapes=True,
-    #                                        output_facial_transformation_matrixes=True,
-    #                                        num_faces=1,
-    #                                        min_face_detection_confidence=0.1,
-    #                                        min_face_presence_confidence=0.1
-    #                                        )
-    # print(f"options: {options}")
-    # detector = vision.FaceLandmarker.create_from_options(options)
-    # print(f"detector: {detector}")
-    # return detector
-
     print("start loading detector ...")
     try:
         # Try with default settings (might use GPU)
