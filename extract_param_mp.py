@@ -7,13 +7,14 @@ from numpy import ndarray
 from torch import Tensor
 from torch.multiprocessing import Queue, Process
 import time
-import mediapipe
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from pathlib import Path
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple
 import traceback
 from skimage.transform import estimate_transform, warp
+from tqdm import tqdm
+import mediapipe
 from utils.mediapipe_utils import run_mediapipe
 from src import smirk_encoder
 from src.smirk_encoder import SmirkEncoder
@@ -91,12 +92,15 @@ class FrameExtractor:
         frames = []
         frame_count = 0
 
+        pbar = tqdm(total=num_frames, desc="Processing Frames",
+                    bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]")
+
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
                 break
 
-            # #Method 1: ========================================
+            # #Method 1: =============================
             image = frame
             h, w, _ = image.shape
             bbox, bbox_type = self.face_detector.run(image)
@@ -125,11 +129,13 @@ class FrameExtractor:
             dst_image = warp(image, tform.inverse, output_shape=(self.target_size[0], self.target_size[1]))
             dst_image = dst_image.transpose(2, 0, 1)
             cropped_image = torch.tensor(dst_image).float()
+            # ========================================
 
-            # #Method 2: ========================================
+            # #Method 2: =============================
             # kpt_mediapipe = run_mediapipe(frame)
+            # ========================================
 
-            # #Method 3: ========================================
+            # #Method 3: =============================
             # image = frame
             # image_numpy = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             # image = mediapipe.Image(image_format=mediapipe.ImageFormat.SRGB, data=image_numpy)
@@ -166,15 +172,17 @@ class FrameExtractor:
             # cropped_image = cv2.resize(cropped_image, self.target_size)
             # cropped_image = torch.tensor(cropped_image).permute(2, 0, 1).float() / 255.0
             # # [3, 224, 224]
-            # print("crop finished ...")
-            # ========================================
-
+            #
             # Resize frame
             # frame = cv2.resize(frame, self.target_size[::-1])  # cv2 expects (width, height)
-            frames.append(cropped_image)
+            # ========================================
 
+
+            frames.append(cropped_image)
             frame_count += 1
-            print(f"frame_count: {frame_count} / {num_frames}")
+
+            pbar.update(1)
+            # print(f"frame_count: {frame_count} / {num_frames}")
 
         cap.release()
         return frames, fps
