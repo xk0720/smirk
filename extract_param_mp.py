@@ -56,6 +56,7 @@ class FrameExtractor:
         return tform
 
     def load_detector(self):
+        print("start loading detector ...")
         base_options = python.BaseOptions(model_asset_path='assets/face_landmarker.task')
         print(f"base_options: {base_options}")
         options = vision.FaceLandmarkerOptions(base_options=base_options,
@@ -65,7 +66,9 @@ class FrameExtractor:
                                                min_face_detection_confidence=0.1,
                                                min_face_presence_confidence=0.1
                                                )
+        print(f"options: {options}")
         detector = vision.FaceLandmarker.create_from_options(options)
+        print(f"detector: {detector}")
         return detector
 
     def extract_frames(self, video_path: str) -> tuple[list[Tensor], float]:
