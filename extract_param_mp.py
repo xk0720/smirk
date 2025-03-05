@@ -495,8 +495,7 @@ if __name__ == "__main__":
                         default="/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF/face_cropped",
                         help="Directory containing video files")
     parser.add_argument("--model_path", type=str,
-                        default="/lustre/projects/Research_Project-T127204/xk219/projects/ai_digital_humans_repo_summary"
-                                "/smirk/pretrained_models/SMIRK_em1.pt",
+                        default="./pretrained_models/SMIRK_em1.pt",
                         help="Path to the 3DMM model")
     parser.add_argument("--result_dir", type=str,
                         default="/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF/param",
