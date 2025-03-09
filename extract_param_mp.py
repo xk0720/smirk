@@ -605,8 +605,6 @@ def main(video_dir: str, model_path: str, result_dir: str,
         p.start()
         processing_processes.append(p)
 
-    # TODO didn't reach this step
-
     # Wait for video processing to complete
     for p in processing_processes:
         p.join()
