@@ -102,6 +102,10 @@ class FrameExtractor:
 
             # #Method 1: =============================
             image = frame
+
+            # TODO debug: save GT image
+            cv2.imwrite(f"image_{frame_count}.jpg", image)
+
             h, w, _ = image.shape
             bbox, bbox_type = self.face_detector.run(image)
             if len(bbox) < 4:
@@ -115,6 +119,13 @@ class FrameExtractor:
                 right = bbox[2]
                 top = bbox[1];
                 bottom = bbox[3]
+
+            # TODO debug:
+            left = 0;
+            right = h - 1;
+            top = 0;
+            bottom = w - 1
+
             old_size, center = self.bbox2point(left, right, top, bottom, type=bbox_type)
 
             size = int(old_size * self.scale)
@@ -129,10 +140,9 @@ class FrameExtractor:
 
             dst_image = warp(image, tform.inverse, output_shape=(self.target_size[0], self.target_size[1]))
 
-            if len(bbox) < 4:
-                # save cropped image for checking
-                cv2.imwrite(f"cropped_image_{frame_count}.jpg", dst_image)
-                5/0
+            # TODO debug: save cropped image for checking
+            cv2.imwrite(f"cropped_image_{frame_count}.jpg", dst_image)
+            5/0
 
             dst_image = dst_image.transpose(2, 0, 1)
             cropped_image = torch.tensor(dst_image).float()
