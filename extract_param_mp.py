@@ -130,9 +130,8 @@ class FrameExtractor:
 
             dst_image = warp(image, tform.inverse, output_shape=(self.target_size[0], self.target_size[1]))
 
-            # TODO debug: save cropped image for checking
-            cv2.imwrite(f"cropped_image_{frame_count}.jpg", dst_image * 255.)
-            5/0
+            # #debug: save cropped image for checking
+            # cv2.imwrite(f"cropped_image_{frame_count}.jpg", dst_image * 255.)
 
             dst_image = dst_image.transpose(2, 0, 1)
             cropped_image = torch.tensor(dst_image).float()
@@ -713,11 +712,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    resume(model_path=args.model_path,
-           result_dir="/lustre/projects/Research_Project-T127204/xk219/projects/ai_digital_humans_repo_summary/"
-                      "develop/smirk/temp_param_save",
-           batch_size=128)
-    5/0
+    # resume(model_path=args.model_path,
+    #        result_dir="/lustre/projects/Research_Project-T127204/xk219/projects/ai_digital_humans_repo_summary/"
+    #                   "develop/smirk/temp_param_save",
+    #        batch_size=128)
 
     main(args.video_dir, args.model_path, args.result_dir,
          args.num_workers, args.gpu_ids, args.frame_interval, args.batch_size)
