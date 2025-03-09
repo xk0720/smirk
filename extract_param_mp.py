@@ -717,7 +717,8 @@ if __name__ == "__main__":
 
     resume(model_path=args.model_path,
            result_dir="/lustre/projects/Research_Project-T127204/xk219/projects/ai_digital_humans_repo_summary/"
-                      "develop/smirk/temp_param_save",)
+                      "develop/smirk/temp_param_save",
+           batch_size=128)
     5/0
 
     main(args.video_dir, args.model_path, args.result_dir,
