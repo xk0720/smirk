@@ -141,7 +141,7 @@ class FrameExtractor:
             dst_image = warp(image, tform.inverse, output_shape=(self.target_size[0], self.target_size[1]))
 
             # TODO debug: save cropped image for checking
-            cv2.imwrite(f"cropped_image_{frame_count}.jpg", dst_image)
+            cv2.imwrite(f"cropped_image_{frame_count}.jpg", dst_image * 255.)
             5/0
 
             dst_image = dst_image.transpose(2, 0, 1)
