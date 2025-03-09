@@ -25,7 +25,7 @@ class FrameExtractor:
     """Extracts frames from videos and prepares them for the 3DMM model."""
 
     def __init__(self, frame_interval: int = 1, target_size: Tuple[int, int] = (224, 224),
-                 detector = None, scale: float = 1.25):
+                 detector=None, scale: float = 1.25):
         """
         Args:
             frame_interval: Extract every nth frame
@@ -40,12 +40,12 @@ class FrameExtractor:
     def bbox2point(self, left, right, top, bottom, type='bbox'):
         ''' bbox from detector and landmarks are different
         '''
-        if type=='kpt68':
-            old_size = (right - left + bottom - top)/2*1.1
-            center = np.array([right - (right - left) / 2.0, bottom - (bottom - top) / 2.0 ])
-        elif type=='bbox':
-            old_size = (right - left + bottom - top)/2
-            center = np.array([right - (right - left) / 2.0, bottom - (bottom - top) / 2.0  + old_size*0.12])
+        if type == 'kpt68':
+            old_size = (right - left + bottom - top) / 2 * 1.1
+            center = np.array([right - (right - left) / 2.0, bottom - (bottom - top) / 2.0])
+        elif type == 'bbox':
+            old_size = (right - left + bottom - top) / 2
+            center = np.array([right - (right - left) / 2.0, bottom - (bottom - top) / 2.0 + old_size * 0.12])
         else:
             raise NotImplementedError
         return old_size, center
@@ -118,8 +118,9 @@ class FrameExtractor:
             old_size, center = self.bbox2point(left, right, top, bottom, type=bbox_type)
 
             size = int(old_size * self.scale)
-            src_pts = np.array([[center[0] - size / 2, center[1] - size / 2], [center[0] - size / 2, center[1] + size / 2],
-                                [center[0] + size / 2, center[1] - size / 2]])
+            src_pts = np.array(
+                [[center[0] - size / 2, center[1] - size / 2], [center[0] - size / 2, center[1] + size / 2],
+                 [center[0] + size / 2, center[1] - size / 2]])
 
             DST_PTS = np.array([[0, 0], [0, self.target_size[0] - 1], [self.target_size[1] - 1, 0]])
             tform = estimate_transform('similarity', src_pts, DST_PTS)
@@ -127,6 +128,12 @@ class FrameExtractor:
             image = image / 255.
 
             dst_image = warp(image, tform.inverse, output_shape=(self.target_size[0], self.target_size[1]))
+
+            if len(bbox) < 4:
+                # save cropped image for checking
+                cv2.imwrite(f"cropped_image_{frame_count}.jpg", dst_image)
+                5/0
+
             dst_image = dst_image.transpose(2, 0, 1)
             cropped_image = torch.tensor(dst_image).float()
             # ========================================
@@ -473,6 +480,43 @@ def result_collector(output_queue: Queue, result_dir: str, expected_workers: int
 #     return f"Processed {video_id}"
 
 
+def resume(model_path: str, result_dir: str, frame_interval: int = 1, batch_size: int = 32):
+    video_files = [
+        "/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF/face_cropped/MitchDaniels0_1.mp4",
+        "/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF/face_cropped/ByronDorgan1.mp4",
+    ]
+
+    video_ids = ["MitchDaniels0_1", "ByronDorgan1"]
+
+    target_size = (224, 224)
+    detector = detectors.FAN()  # default 'FAN'
+    extractor = FrameExtractor(frame_interval, target_size, detector)
+    model = Model3DMM(model_path, device="cuda:0")
+
+    for i, video_path in enumerate(video_files):
+        video_id = video_ids[i]
+        try:
+            # Extract frames
+            frames, fps = extractor.extract_frames(str(video_path))
+
+            # Process frames in batches
+            for i in range(0, len(frames), batch_size):
+                batch_frames = frames[i:i + batch_size]
+                frames_batch = extractor.preprocess_frames(batch_frames)
+
+                parameters = model.extract_parameters(frames_batch)
+
+                batch_number = i // batch_size
+                batch_id = f"{video_id}_{batch_number:06d}"  # Zero-padding to 6 digits
+                output_path = os.path.join(result_dir, f"{batch_id}.npy")
+                np.save(output_path, parameters)
+                print(f"Saved parameters for {batch_id} to {output_path}")
+
+        except Exception as e:
+            print(f"Error raised {video_path}: {e}")
+            traceback.print_exc()
+
+
 def main(video_dir: str, model_path: str, result_dir: str,
          num_workers: int = 8, gpu_ids: List[int] = [0],
          frame_interval: int = 1, batch_size: int = 32,
@@ -670,6 +714,11 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=128, help="Number of frames to process at once")
 
     args = parser.parse_args()
+
+    resume(model_path=args.model_path,
+           result_dir="/lustre/projects/Research_Project-T127204/xk219/projects/ai_digital_humans_repo_summary/"
+                      "develop/smirk/temp_param_save",)
+    5/0
 
     main(args.video_dir, args.model_path, args.result_dir,
          args.num_workers, args.gpu_ids, args.frame_interval, args.batch_size)
