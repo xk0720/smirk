@@ -6,19 +6,18 @@ import torch.multiprocessing as mp
 from numpy import ndarray
 from torch import Tensor
 from torch.multiprocessing import Queue, Process
-import time
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from pathlib import Path
-from typing import List, Dict, Tuple
+from typing import List, Tuple
 import traceback
 from skimage.transform import estimate_transform, warp
 from tqdm import tqdm
-import mediapipe
-from utils.mediapipe_utils import run_mediapipe
-from src import smirk_encoder
-from src.smirk_encoder import SmirkEncoder
 import detectors
+from src.smirk_encoder import SmirkEncoder
+from src import smirk_encoder
+# import mediapipe
+# from utils.mediapipe_utils import run_mediapipe
 
 
 class FrameExtractor:
@@ -45,13 +44,14 @@ class FrameExtractor:
             center = np.array([right - (right - left) / 2.0, bottom - (bottom - top) / 2.0])
         elif type == 'bbox':
             old_size = (right - left + bottom - top) / 2
-            center = np.array([right - (right - left) / 2.0, bottom - (bottom - top) / 2.0 + old_size * 0.12])
+            center = np.array([right - (right - left) / 2.0, bottom - (bottom - top) / 2.0 + old_size * 0.1])
+            # center = np.array([right - (right - left) / 2.0, bottom - (bottom - top) / 2.0 + old_size * 0.12])
         else:
             raise NotImplementedError
         return old_size, center
 
     def crop_face(self, frame, landmarks, scale: float = 1.0, image_size: Tuple[int, int] = (224, 224)):
-        print("cropping face ...")
+        # print("cropping face ...")
         left = np.min(landmarks[:, 0])
         right = np.max(landmarks[:, 0])
         top = np.min(landmarks[:, 1])
@@ -62,7 +62,7 @@ class FrameExtractor:
         center = np.array([right - (right - left) / 2.0, bottom - (bottom - top) / 2.0])
 
         size = int(old_size * scale)
-        print(f"old_size: {old_size}, size: {size}")
+        # print(f"old_size: {old_size}, size: {size}")
 
         # crop image
         src_pts = np.array([[center[0] - size / 2, center[1] - size / 2], [center[0] - size / 2, center[1] + size / 2],
@@ -112,9 +112,9 @@ class FrameExtractor:
                 bottom = w - 1
             else:
                 left = bbox[0];
-                right = bbox[2]
+                right = bbox[2];
                 top = bbox[1];
-                bottom = bbox[3]
+                bottom = bbox[3];
 
             old_size, center = self.bbox2point(left, right, top, bottom, type=bbox_type)
 
@@ -126,15 +126,23 @@ class FrameExtractor:
             DST_PTS = np.array([[0, 0], [0, self.target_size[0] - 1], [self.target_size[1] - 1, 0]])
             tform = estimate_transform('similarity', src_pts, DST_PTS)
 
-            image = image / 255.
+            # image = image / 255.
+            # dst_image = warp(image, tform.inverse, output_shape=(self.target_size[0], self.target_size[1]))
+            # dst_image = dst_image.transpose(2, 0, 1)
+            # cropped_image = torch.tensor(dst_image).float()/255.
 
-            dst_image = warp(image, tform.inverse, output_shape=(self.target_size[0], self.target_size[1]))
+            cropped_image = warp(image, tform.inverse,
+                                 output_shape=(self.target_size[0], self.target_size[1]),
+                                 preserve_range=True).astype(np.uint8)
 
-            # #debug: save cropped image for checking
-            # cv2.imwrite(f"cropped_image_{frame_count}.jpg", dst_image * 255.)
+            cropped_image = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB)
+            cropped_image = cv2.resize(cropped_image, (self.target_size[0], self.target_size[1]))
 
-            dst_image = dst_image.transpose(2, 0, 1)
-            cropped_image = torch.tensor(dst_image).float()
+            # TODO debug: save cropped image for checking
+            cv2.imwrite(f"cropped_image_{frame_count}.jpg", cropped_image)
+            5/0
+
+            cropped_image = torch.tensor(cropped_image).permute(2, 0, 1).float() / 255.0
             # ========================================
 
             # #Method 2: =============================
