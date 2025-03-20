@@ -56,7 +56,8 @@ def extract_audio(input_video_path, output_wav_path):
 def main():
     parser = argparse.ArgumentParser(description='Extract WAV audio from video files')
     parser.add_argument('--input_dir', type=str,
-                        default="/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF_dataset/HDTF",
+                        # default="/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF_dataset/HDTF",
+                        default="/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF/video_clipped",
                         help='Directory containing input video files')
     parser.add_argument('--output_dir', type=str,
                         default="/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF/wav",
@@ -87,6 +88,8 @@ def main():
             # Create output path with .wav extension
             base_name = os.path.splitext(video_file)[0]
             output_path = os.path.join(args.output_dir, f"{base_name}.wav")
+            print(f"Processing {input_path} to {output_path}")
+            5/0
 
             # Extract audio
             success = extract_audio(input_path, output_path)
