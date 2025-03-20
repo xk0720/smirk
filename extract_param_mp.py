@@ -126,21 +126,12 @@ class FrameExtractor:
             DST_PTS = np.array([[0, 0], [0, self.target_size[0] - 1], [self.target_size[1] - 1, 0]])
             tform = estimate_transform('similarity', src_pts, DST_PTS)
 
-            # image = image / 255.
-            # dst_image = warp(image, tform.inverse, output_shape=(self.target_size[0], self.target_size[1]))
-            # dst_image = dst_image.transpose(2, 0, 1)
-            # cropped_image = torch.tensor(dst_image).float()/255.
-
             cropped_image = warp(image, tform.inverse,
                                  output_shape=(self.target_size[0], self.target_size[1]),
                                  preserve_range=True).astype(np.uint8)
 
             cropped_image = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB)
             cropped_image = cv2.resize(cropped_image, (self.target_size[0], self.target_size[1]))
-
-            # TODO debug: save cropped image for checking
-            cv2.imwrite(f"cropped_image_{frame_count}.jpg", cropped_image)
-            5/0
 
             cropped_image = torch.tensor(cropped_image).permute(2, 0, 1).float() / 255.0
             # ========================================
