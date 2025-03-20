@@ -713,7 +713,7 @@ if __name__ == "__main__":
     parser.add_argument("--result_dir", type=str,
                         default="/lustre/projects/Research_Project-T127204/xk219/projects/datasets/HDTF/param",
                         help="Directory to save results to")
-    parser.add_argument("--num_workers", type=int, default=8, help="Number of video processing workers")
+    parser.add_argument("--num_workers", type=int, default=1, help="Number of video processing workers")
     parser.add_argument("--gpu_ids", type=int, nargs="+", default=[0], help="GPU IDs to use")
     parser.add_argument("--frame_interval", type=int, default=1, help="Extract every nth frame")
     parser.add_argument("--batch_size", type=int, default=128, help="Number of frames to process at once")
