@@ -89,7 +89,6 @@ def main():
             base_name = os.path.splitext(video_file)[0]
             output_path = os.path.join(args.output_dir, f"{base_name}.wav")
             print(f"Processing {input_path} to {output_path}")
-            5/0
 
             # Extract audio
             success = extract_audio(input_path, output_path)
