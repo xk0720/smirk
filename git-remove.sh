@@ -111,7 +111,7 @@ if [ ${#removed_files[@]} -gt 0 ]; then
 
     # Push changes
     echo "Pushing changes to remote repository..."
-    git push origin master
+    git push origin develop
 
     echo "Operation complete! Files have been deleted and pushed to the remote repository."
 else
