@@ -134,7 +134,6 @@ if __name__ == '__main__':
     # Save the PIL image to PNG
     output_path = "rendered_image.png"
     pil_image.save(output_path)
-    5 / 0
 
     if args.render_orig:
         if args.crop:
